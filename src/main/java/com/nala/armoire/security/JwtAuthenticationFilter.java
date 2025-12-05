@@ -29,7 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
 
             String path = request.getServletPath();
-            System.out.println("REQUEST PATH = " + request.getServletPath());
+//            System.out.println("REQUEST PATH = " + request.getServletPath());
 
             // Skip authentication for auth routes
             if (path.startsWith("/api/v1/auth")) {
@@ -68,6 +68,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
+
+
         return null;
     }
 }

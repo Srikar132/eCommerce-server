@@ -14,7 +14,7 @@ import java.util.UUID;
 public class WishList {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     // Many wishlist records can belong to one user

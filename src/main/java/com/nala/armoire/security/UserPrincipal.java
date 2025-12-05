@@ -9,7 +9,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -27,19 +26,45 @@ public class UserPrincipal implements UserDetails {
                 user.getEmail(),
                 user.getPassword(),
                 Collections.singletonList(
-                        new SimpleGrantedAuthority("ROLE_" + user.getRole())
+                        new SimpleGrantedAuthority("ROLE_" + (user.getRole() == null ? "USER" : user.getRole()))
                 )
         );
     }
 
+    // IMPORTANT: return the stored authorities
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of();
+        return this.authorities;
     }
 
+    @Override
+    public String getPassword() {
+        return this.password;
+    }
 
     @Override
     public String getUsername() {
-        return email;
+        return this.email;
+    }
+
+    // Default implementations — change if you support account locking/expiry
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
     }
 }

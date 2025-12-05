@@ -16,7 +16,7 @@ import java.util.UUID;
 public class DesignCategory {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(nullable = false, length = 100)

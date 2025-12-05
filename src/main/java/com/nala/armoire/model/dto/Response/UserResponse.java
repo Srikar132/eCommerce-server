@@ -1,4 +1,4 @@
-package com.nala.armoire.model.dto.Response;
+package com.nala.armoire.model.dto.response;
 
 import com.nala.armoire.model.entity.UserRole;
 import lombok.AllArgsConstructor;

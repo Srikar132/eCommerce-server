@@ -36,15 +36,6 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     private UserDetails buildUserDetails(User user) {
-        return org.springframework.security.core.userdetails.User
-                .builder()
-                .username(user.getEmail())
-                .password(user.getPassword())
-                .authorities(Collections.singletonList(
-                        new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
-                ))
-                .accountExpired(false)
-                .credentialsExpired(false)
-                .build();
+        return UserPrincipal.create(user);
     }
 }

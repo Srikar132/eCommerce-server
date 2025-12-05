@@ -1,16 +1,18 @@
 package com.nala.armoire.service;
 
 import com.nala.armoire.exception.ResourceNotFoundException;
-import com.nala.armoire.model.dto.Response.AddressDTO;
-import com.nala.armoire.model.dto.Response.UserResponse;
+import com.nala.armoire.model.dto.request.UpdateProfileRequest;
+import com.nala.armoire.model.dto.response.AddressDTO;
+import com.nala.armoire.model.dto.response.UserProfileDTO;
 import com.nala.armoire.model.entity.User;
 import com.nala.armoire.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -18,40 +20,47 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final AddressService addressService;
 
-    public UserResponse getUserProfile(UUID userId) {
+    @Transactional(readOnly = true)
+    public UserProfileDTO getUserProfile(UUID userId) {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User Not Found"));
 
-        return mapToProfileDTO(user);
+        List<AddressDTO> userAddresses = addressService.getUserAddresses(user.getId());
+
+        return mapToProfileDTO(user , userAddresses);
     }
 
-    private AddressDTO mapToAddressDTO(com.nala.armoire.model.entity.Address address) {
-        return AddressDTO.builder()
-                .id(address.getId())
-                .addressType(address.getAddressType())
-                .streetAddress(address.getStreetAddress())
-                .city(address.getCity())
-                .state(address.getState())
-                .postalCode(address.getPostalCode())
-                .country(address.getCountry())
-                .isDefault(address.getIsDefault())
-                .createdAt(address.getCreatedAt())
-                .build();
+    @Transactional()
+    public UserProfileDTO updateUserProfile(UUID userId, UpdateProfileRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User Not Found"));
+        user.setUserName(request.getUsername());
+        user.setPhone(request.getPhone());
+
+        User updatedUser = userRepository.save(user);
+        log.info("User profile updated successfully for userId: {}", userId);
+
+        List<AddressDTO> userAddresses = addressService.getUserAddresses(user.getId());
+
+
+        return mapToProfileDTO(updatedUser , userAddresses);
     }
 
-    private UserResponse mapToProfileDTO(User user) {
-        return UserResponse.builder()
-                .id(user.getId())
+
+
+
+    private UserProfileDTO mapToProfileDTO(User user ,  List<AddressDTO> userAddresses) {
+        return UserProfileDTO.builder()
+                .id(String.valueOf(user.getId()))
                 .email(user.getEmail())
-                .userName(user.getUserName())
+                .username(user.getUserName())
                 .phone(user.getPhone())
                 .emailVerified(user.getEmailVerified())
                 .createdAt(user.getCreatedAt())
-                .addresses(user.getAddresses().stream()
-                        .map(this::mapToAddressDTO)
-                        .collect(Collectors.toList()))
+                .addresses(userAddresses)
                 .build();
     }
 

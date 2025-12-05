@@ -1,11 +1,11 @@
 package com.nala.armoire.service;
 
 import com.nala.armoire.exception.BadRequestException;
-import com.nala.armoire.model.dto.Request.*;
+import com.nala.armoire.model.dto.request.*;
 import com.nala.armoire.exception.UnauthorizedException;
-import com.nala.armoire.model.dto.Response.AuthResponse;
+import com.nala.armoire.model.dto.response.AuthResponse;
 import com.nala.armoire.model.dto.Response.MessageResponse;
-import com.nala.armoire.model.dto.Response.UserResponse;
+import com.nala.armoire.model.dto.response.UserResponse;
 import com.nala.armoire.model.entity.RefreshToken;
 import com.nala.armoire.model.entity.User;
 import com.nala.armoire.model.entity.UserRole;
@@ -61,6 +61,8 @@ public class AuthService {
                     .phone(request.getPhone())
                     .userName(request.getUserName())
                     .role(UserRole.CUSTOMER)
+                    .isActive(true)
+                    .emailVerified(false)
                     .verificationToken(UUID.randomUUID().toString())
                     .verificationTokenExpiresAt(
                         LocalDateTime.now().plusSeconds(verificationTokenExpiration / 1000)
@@ -78,40 +80,30 @@ public class AuthService {
         System.out.println("LOGIN SERVICE - Starting");
         System.out.println("Email: " + request.getEmail());
 
-        try {
-            // Authentication user
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            request.getEmail(),
-                            request.getPassword()
-                    )
-            );
-            System.out.println("Authentication successful");
+        // Authentication user
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getEmail(),
+                        request.getPassword()
+                )
+        );
+        System.out.println("Authentication successful");
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Get the user
-            User user = userRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new UnauthorizedException("Invalid User Credentials"));
+        // Get the user
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new UnauthorizedException("Invalid User Credentials"));
 
-            System.out.println("User found: " + user.getEmail());
-            System.out.println("User active: " + user.getIsActive());
+        System.out.println("User found: " + user.getEmail());
+//        System.out.println("User active: " + user.getIsActive());
 
-            if(!user.getIsActive()) {
-                throw new UnauthorizedException("Account is deactivated");
-            }
-
-            // generate tokens
-            return generateAuthResponse(user);
-
-        } catch (BadCredentialsException e) {
-            System.out.println("Bad credentials: " + e.getMessage());
-            throw new UnauthorizedException(e.getMessage());
-        } catch (Exception e) {
-            System.out.println("Login error: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
+        if(!user.getIsActive()) {
+            throw new UnauthorizedException("Account is deactivated");
         }
+
+        // generate tokens
+        return generateAuthResponse(user);
     }
     @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request) {

@@ -14,7 +14,7 @@ import java.util.UUID;
 public class ProductImage {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @ManyToOne
