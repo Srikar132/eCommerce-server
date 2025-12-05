@@ -7,7 +7,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class ArmoireApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ArmoireApplication.class, args);
+
+        SpringApplication.run(ArmoireApplication.class, args);
 	}
 
 }
