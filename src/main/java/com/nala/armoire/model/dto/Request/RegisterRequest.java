@@ -28,7 +28,7 @@ public class RegisterRequest {
 
     @NotBlank(message = "user name is required")
     @Size(min = 2, max = 100)
-    private String userName;
+    private String username;
 
 
     @Pattern(regexp = "^\\+?[1-9]\\d{1,14}$", message = "Phone number must be valid")
