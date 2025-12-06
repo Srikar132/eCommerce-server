@@ -6,7 +6,6 @@ import com.nala.armoire.model.dto.request.UpdateAddressRequest;
 import com.nala.armoire.model.dto.request.UpdateProfileRequest;
 import com.nala.armoire.model.dto.response.AddressDTO;
 import com.nala.armoire.model.dto.response.UserProfileDTO;
-import com.nala.armoire.model.dto.response.UserResponse;
 import com.nala.armoire.security.UserPrincipal;
 import com.nala.armoire.service.AddressService;
 import com.nala.armoire.service.UserService;

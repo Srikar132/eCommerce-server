@@ -1,4 +1,4 @@
-package com.nala.armoire.model.dto.Response;
+package com.nala.armoire.model.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

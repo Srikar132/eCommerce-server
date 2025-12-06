@@ -2,7 +2,7 @@ package com.nala.armoire.controller;
 
 import com.nala.armoire.model.dto.request.*;
 import com.nala.armoire.model.dto.response.AuthResponse;
-import com.nala.armoire.model.dto.Response.MessageResponse;
+import com.nala.armoire.model.dto.response.MessageResponse;
 import com.nala.armoire.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
