@@ -50,6 +50,7 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .setSubject(userId.toString())
+                .claim("jti", UUID.randomUUID().toString())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey())

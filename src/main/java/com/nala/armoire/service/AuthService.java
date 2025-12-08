@@ -110,6 +110,8 @@ public class AuthService {
         // Get user
         User user = refreshToken.getUser();
 
+        refreshTokenRepository.delete(refreshToken);
+
         // Generate new tokens
         return generateTokenPair(user);
     }
@@ -260,7 +262,7 @@ public class AuthService {
         // Generate refresh token
         String refreshTokenString = tokenProvider.generateRefreshToken(user.getId());
 
-        // Save refresh token to database
+        // Save refresh token to a database
         RefreshToken refreshToken = RefreshToken.builder()
                 .token(refreshTokenString)
                 .user(user)
