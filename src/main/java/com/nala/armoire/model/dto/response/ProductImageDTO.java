@@ -5,13 +5,16 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-// Auth Response
+import java.util.UUID;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthResponse {
-    private UserResponse user;
-    private String message; // Optional: for response messages
-
+public class ProductImageDTO {
+    private UUID id;
+    private String imageUrl;
+    private String altText;
+    private Integer displayOrder;
+    private Boolean isPrimary;
 }

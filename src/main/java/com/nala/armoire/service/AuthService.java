@@ -3,7 +3,6 @@ package com.nala.armoire.service;
 import com.nala.armoire.exception.BadRequestException;
 import com.nala.armoire.model.dto.request.*;
 import com.nala.armoire.exception.UnauthorizedException;
-import com.nala.armoire.model.dto.response.AuthResponse;
 import com.nala.armoire.model.dto.response.MessageResponse;
 import com.nala.armoire.model.dto.response.UserResponse;
 import com.nala.armoire.model.entity.RefreshToken;
@@ -25,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -37,9 +35,6 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
-    @Value("${jwt.access-token-expiration}")
-    private Long accessTokenExpiration;
-
     @Value("${jwt.refresh-token-expiration}")
     private Long refreshTokenExpiration;
 
@@ -47,46 +42,41 @@ public class AuthService {
     private Long verificationTokenExpiration;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        //check if email already exists
+    public TokenPair register(RegisterRequest request) {
+        // Check if email already exists
         if(userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Email already registered");
         }
 
-        //create user
+        // Create user
         User user = User.builder()
-                    .email(request.getEmail())
-                    .password(passwordEncoder.encode(request.getPassword()))
-                    .phone(request.getPhone())
-                    .userName(request.getUserName())
-                    .role(UserRole.CUSTOMER)
-                    .isActive(true)
-                    .emailVerified(false)
-                    .verificationToken(UUID.randomUUID().toString())
-                    .verificationTokenExpiresAt(
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .phone(request.getPhone())
+                .userName(request.getUsername())
+                .role(UserRole.CUSTOMER)
+                .isActive(true)
+                .emailVerified(false)
+                .verificationToken(UUID.randomUUID().toString())
+                .verificationTokenExpiresAt(
                         LocalDateTime.now().plusSeconds(verificationTokenExpiration / 1000)
-                    ).build();
+                ).build();
 
         user = userRepository.save(user);
-
         emailService.sendVerificationEmail(user);
 
-        return generateAuthResponse(user);
+        return generateTokenPair(user);
     }
 
     @Transactional
-    public AuthResponse login(LoginRequest request) {
-        System.out.println("LOGIN SERVICE - Starting");
-        System.out.println("Email: " + request.getEmail());
-
-        // Authentication user
+    public TokenPair login(LoginRequest request) {
+        // Authenticate user
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
                         request.getPassword()
                 )
         );
-        System.out.println("Authentication successful");
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
@@ -94,54 +84,50 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("Invalid User Credentials"));
 
-        System.out.println("User found: " + user.getEmail());
-//        System.out.println("User active: " + user.getIsActive());
-
         if(!user.getIsActive()) {
             throw new UnauthorizedException("Account is deactivated");
         }
 
-        // generate tokens
-        return generateAuthResponse(user);
+        return generateTokenPair(user);
     }
-    @Transactional
-    public AuthResponse refreshToken(RefreshTokenRequest request) {
-        String requestToken = request.getRefreshToken();
 
-        //validate the refresh token
-        if(!tokenProvider.validateToken(requestToken)) {
+    @Transactional
+    public TokenPair refreshToken(String refreshTokenString) {
+        // Validate the refresh token
+        if(!tokenProvider.validateToken(refreshTokenString)) {
             throw new UnauthorizedException("Invalid refresh token");
         }
 
-        //find refresh token in the database
-        RefreshToken refreshToken = refreshTokenRepository.findByToken(requestToken)
+        // Find refresh token in the database
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenString)
                 .orElseThrow(() -> new UnauthorizedException("Refresh token not found"));
 
-        //check if revoked or expired
+        // Check if revoked or expired
         if(refreshToken.getRevoked() || refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new UnauthorizedException("Refresh token is revoked or expired");
         }
 
-        //get user
+        // Get user
         User user = refreshToken.getUser();
 
-        //generate new access token
-
-        String accessToken = tokenProvider.generateAccessToken(
-                user.getId(),
-                user.getEmail(),
-                user.getRole().name()
-        );
-
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(requestToken)
-                .tokenType("Bearer")
-                .expiresIn(accessTokenExpiration / 1000)
-                .user(mapToUserResponse(user))
-                .build();
+        // Generate new tokens
+        return generateTokenPair(user);
     }
 
+    public UserResponse getCurrentUser(String accessToken) {
+        // Validate token
+        if(!tokenProvider.validateToken(accessToken)) {
+            throw new UnauthorizedException("Invalid access token");
+        }
+
+        // Extract user ID from token
+        UUID userId = tokenProvider.getUserIdFromToken(accessToken);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UnauthorizedException("User not found"));
+
+        return mapToUserResponse(user);
+    }
 
     @Transactional
     public MessageResponse verifyEmail(String token) {
@@ -171,9 +157,7 @@ public class AuthService {
         // Generate reset token
         String resetToken = UUID.randomUUID().toString();
         user.setPasswordResetToken(resetToken);
-        user.setPasswordResetTokenExpiresAt(
-                LocalDateTime.now().plusHours(1)
-        );
+        user.setPasswordResetTokenExpiresAt(LocalDateTime.now().plusHours(1));
         userRepository.save(user);
 
         // Send reset email
@@ -207,11 +191,24 @@ public class AuthService {
 
     @Transactional
     public MessageResponse logout(UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BadRequestException("User not found"));
+        if (userId == null) {
+            throw new UnauthorizedException("User ID cannot be null");
+        }
+
+        userRepository.findById(userId)
+                .orElseThrow(() -> new UnauthorizedException("User not found"));
+
+        // Count before
+        long countBefore = refreshTokenRepository.count();
+        System.out.println("Total refresh tokens BEFORE: " + countBefore);
 
         // Revoke all refresh tokens
-        refreshTokenRepository.deleteByUser(user);
+        refreshTokenRepository.deleteByUserId(userId);
+        refreshTokenRepository.flush(); // Force the delete
+
+        long countAfter = refreshTokenRepository.count();
+        System.out.println("Total refresh tokens AFTER: " + countAfter);
+        System.out.println("DELETED REFRESH TOKEN");
 
         return MessageResponse.builder()
                 .message("Logged out successfully")
@@ -219,12 +216,45 @@ public class AuthService {
                 .build();
     }
 
-    private AuthResponse generateAuthResponse(User user) {
+    @Transactional
+    public MessageResponse resendVerification(ForgotPasswordRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new BadRequestException("User not found"));
+
+        // Check if already verified
+        if (user.getEmailVerified()) {
+            return MessageResponse.builder()
+                    .message("Email is already verified")
+                    .success(true)
+                    .build();
+        }
+
+        // Generate new verification token if needed
+        if (user.getVerificationToken() == null ||
+                user.getVerificationTokenExpiresAt() == null ||
+                user.getVerificationTokenExpiresAt().isBefore(LocalDateTime.now())) {
+
+            user.setVerificationToken(UUID.randomUUID().toString());
+            user.setVerificationTokenExpiresAt(
+                    LocalDateTime.now().plusSeconds(verificationTokenExpiration / 1000)
+            );
+            userRepository.save(user);
+        }
+
+        // Send verification email
+        emailService.sendVerificationEmail(user);
+
+        return MessageResponse.builder()
+                .message("Verification email sent successfully")
+                .success(true)
+                .build();
+    }
+
+    // Helper method to generate tokens and user response
+    private TokenPair generateTokenPair(User user) {
         // Generate access token
         String accessToken = tokenProvider.generateAccessToken(
-                user.getId(),
-                user.getEmail(),
-                user.getRole().name()
+                user
         );
 
         // Generate refresh token
@@ -237,15 +267,12 @@ public class AuthService {
                 .revoked(false)
                 .expiresAt(LocalDateTime.now().plusSeconds(refreshTokenExpiration / 1000))
                 .build();
-        refreshTokenRepository.save(refreshToken);
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshTokenString)
-                .tokenType("Bearer")
-                .expiresIn(accessTokenExpiration / 1000)
-                .user(mapToUserResponse(user))
-                .build();
+        if (refreshToken != null) {
+            refreshTokenRepository.save(refreshToken);
+        }
+
+        return new TokenPair(accessToken, refreshTokenString, mapToUserResponse(user));
     }
 
     private UserResponse mapToUserResponse(User user) {
@@ -260,4 +287,16 @@ public class AuthService {
                 .build();
     }
 
+    // Inner class to hold tokens and user data
+    public static class TokenPair {
+        public final String accessToken;
+        public final String refreshToken;
+        public final UserResponse user;
+
+        public TokenPair(String accessToken, String refreshToken, UserResponse user) {
+            this.accessToken = accessToken;
+            this.refreshToken = refreshToken;
+            this.user = user;
+        }
+    }
 }

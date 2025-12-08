@@ -2,7 +2,11 @@ package com.nala.armoire.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Entity
@@ -17,11 +21,11 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "brand_id")
     private Brand brand;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
 
@@ -34,31 +38,63 @@ public class Product {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "base_price", nullable = false)
-    private Double basePrice;
+    // CHANGED: Double -> BigDecimal for precise price handling
+    @Column(name = "base_price", nullable = false, precision = 10, scale = 2)
+    private BigDecimal basePrice;
 
     @Column(nullable = false, unique = true, length = 100)
     private String sku;
 
     @Column(name = "is_customizable")
+    @Builder.Default
     private Boolean isCustomizable = true;
 
+    @Column(length = 100)
     private String material;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "care_instructions", columnDefinition = "TEXT")
     private String careInstructions;
 
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
-    @Column(name = "created_at")
-    private Date createdAt = new Date();
+    // CHANGED: Date -> LocalDateTime (better for modern Spring Boot)
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
+    @UpdateTimestamp
     @Column(name = "updated_at")
-    private Date updatedAt = new Date();
+    private LocalDateTime updatedAt;
 
-    // Relationship with images
-    @OneToMany(mappedBy = "product", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
+    // CHANGED: FetchType.EAGER -> LAZY for performance
+    @OneToMany(mappedBy = "product", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ProductImage> images = new ArrayList<>();
+
+    // Add relationship to variants
+    @OneToMany(mappedBy = "product", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ProductVariant> variants = new ArrayList<>();
+
+    // Add relationship to reviews
+    @OneToMany(mappedBy = "product", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Review> reviews = new ArrayList<>();
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = LocalDateTime.now();
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

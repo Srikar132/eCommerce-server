@@ -2,8 +2,8 @@ package com.nala.armoire.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.GenericGenerator;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
@@ -15,7 +15,7 @@ import java.util.UUID;
 public class ProductVariant {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -32,14 +32,18 @@ public class ProductVariant {
     private String colorHex; // #FFFFFF
 
     @Column(name = "stock_quantity")
+    @Builder.Default
     private Integer stockQuantity = 0;
 
-    @Column(name = "additional_price")
-    private Double additionalPrice = 0.0;
+    // CHANGED: Double -> BigDecimal for precise price handling
+    @Column(name = "additional_price", precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal additionalPrice = BigDecimal.ZERO;
 
     @Column(nullable = false, unique = true, length = 100)
     private String sku;
 
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 }
