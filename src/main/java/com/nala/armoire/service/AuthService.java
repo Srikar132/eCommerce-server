@@ -232,10 +232,10 @@ public class AuthService {
         }
 
         // Generate new verification token if needed
-        if (user.getVerificationToken() == null || 
-            user.getVerificationTokenExpiresAt() == null ||
-            user.getVerificationTokenExpiresAt().isBefore(LocalDateTime.now())) {
-            
+        if (user.getVerificationToken() == null ||
+                user.getVerificationTokenExpiresAt() == null ||
+                user.getVerificationTokenExpiresAt().isBefore(LocalDateTime.now())) {
+
             user.setVerificationToken(UUID.randomUUID().toString());
             user.setVerificationTokenExpiresAt(
                     LocalDateTime.now().plusSeconds(verificationTokenExpiration / 1000)

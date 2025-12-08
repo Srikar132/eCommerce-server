@@ -11,6 +11,7 @@ import java.util.UUID;
 @Table(name = "categories")
 @Getter
 @Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -37,7 +38,7 @@ public class Category {
     private String imageUrl;
 
     @Column(name = "is_active")
-    private boolean isActive = true;
+    private Boolean isActive = true;
 
     @Column(name = "display_order")
     private int displayOrder = 0;

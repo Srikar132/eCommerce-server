@@ -43,6 +43,7 @@ public class AuthController {
                 .user(tokenPair.user)
                 .message("Registration successful")
                 .build();
+        System.out.println("User register controller");
 
         return ResponseEntity.status(HttpStatus.CREATED).body(authResponse);
     }
@@ -126,7 +127,7 @@ public class AuthController {
         String accessToken = cookieUtil.extractTokenFromCookie(request, "accessToken");
 
         if (accessToken == null) {
-           throw new UnauthorizedException("Invalid token");
+            throw new UnauthorizedException("Invalid token");
         }
 
         UserResponse user = authService.getCurrentUser(accessToken);
