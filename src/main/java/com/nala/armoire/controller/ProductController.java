@@ -29,7 +29,6 @@ import java.util.UUID;
 public class ProductController {
 
     private final ProductService productService;
-
     /*
      * GET /api/v1/products - List products with filters
      */
