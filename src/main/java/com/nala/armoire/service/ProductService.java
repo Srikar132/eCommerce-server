@@ -3,10 +3,7 @@ package com.nala.armoire.service;
 import com.nala.armoire.exception.BadRequestException;
 import com.nala.armoire.exception.ResourceNotFoundException;
 import com.nala.armoire.model.dto.request.AddReviewRequest;
-import com.nala.armoire.model.dto.response.ProductDTO;
-import com.nala.armoire.model.dto.response.ProductImageDTO;
-import com.nala.armoire.model.dto.response.ProductVariantDTO;
-import com.nala.armoire.model.dto.response.ReviewDTO;
+import com.nala.armoire.model.dto.response.*;
 import com.nala.armoire.model.entity.*;
 import com.nala.armoire.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -37,65 +35,120 @@ public class ProductService {
     private final ProductImageRepository productImageRepository;
 
     //get all products
-
     @Transactional(readOnly = true)
-    public Page<ProductDTO> getProducts(
-            UUID categoryId,
-            UUID brandId,
+    public PagedResponse<ProductDTO> getProducts(
+            List<String> categorySlugs,
+            List<String> brandSlugs,
             BigDecimal minPrice,
             BigDecimal maxPrice,
-            String size,
-            String color,
+            List<String> sizes,
+            List<String> colors,
             Boolean isCustomizable,
-            String material,
-            String sortBy,
-            String sortDirection,
-            Pageable pageable
+            String sort,
+            int page,
+            int limit
     ) {
 
         Specification<Product> spec = (root, query, cb) -> cb.conjunction();
 
-        spec = spec.and(ProductSpecification.isActive());
+//        spec = spec.and(ProductSpecification.isActive());
 
-        if (categoryId != null) {
-            spec = spec.and(ProductSpecification.hasCategoryId(categoryId));
+
+        if (categorySlugs != null && !categorySlugs.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasCategorySlugs(categorySlugs));
         }
-        if (brandId != null) {
-            spec = spec.and(ProductSpecification.hasBrandId(brandId));
+
+        if (brandSlugs != null && !brandSlugs.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasBrandSlugs(brandSlugs));
         }
+
         if (minPrice != null) {
             spec = spec.and(ProductSpecification.hasPriceGreaterThanOrEqual(minPrice));
         }
+
         if (maxPrice != null) {
             spec = spec.and(ProductSpecification.hasPriceLessThanOrEqual(maxPrice));
         }
+
         if (isCustomizable != null) {
             spec = spec.and(ProductSpecification.isCustomizable(isCustomizable));
         }
-        if (material != null) {
-            spec = spec.and(ProductSpecification.hasMaterial(material));
+
+        if (sizes != null && !sizes.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasVariantWithSizes(sizes));
         }
 
-        // Apply sorting
-        Sort sort = Sort.unsorted();
-
-        if (sortBy != null && !sortBy.isEmpty()) {
-            sort = Sort.by(
-                    "ASC".equalsIgnoreCase(sortDirection) ? Sort.Direction.ASC : Sort.Direction.DESC,
-                    sortBy
-            );
+        if (colors != null && !colors.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasVariantWithColors(colors));
         }
 
-        Pageable sortedPageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                sort
+        Sort sorting = parseSortParameter(sort);
+
+        Pageable pageable = PageRequest.of(page - 1, limit, sorting);
+
+        Page<Product> productPage = productRepository.findAll(spec, pageable);
+
+//        System.out.println(productPage);
+
+        List<ProductDTO> productDTOs = productPage.getContent()
+                .stream()
+                .map(this::mapToProductDTO)
+                .collect(Collectors.toList());
+
+        System.out.println(productDTOs.size());
+
+
+        return PagedResponse.<ProductDTO>builder()
+                .content(productDTOs)
+                .page(page)
+                .size(productPage.getSize())
+                .totalElements(productPage.getTotalElements())
+                .totalPages(productPage.getTotalPages())
+                .first(productPage.isFirst())
+                .last(productPage.isLast())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .build();
+    }
+
+    private Sort parseSortParameter(String sortParam) {
+        if (sortParam == null || sortParam.trim().isEmpty()) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+
+        List<Sort.Order> orders = new ArrayList<>();
+        String[] sortFields = sortParam.split(",");
+
+        for (String field : sortFields) {
+            String[] parts = field.trim().split(":");
+            String property = parts[0].trim();
+            Sort.Direction direction = Sort.Direction.DESC;
+
+            if (parts.length > 1) {
+                direction = "asc".equalsIgnoreCase(parts[1].trim())
+                        ? Sort.Direction.ASC
+                        : Sort.Direction.DESC;
+            }
+
+            // Validate sort fields
+            if (isValidSortField(property)) {
+                orders.add(new Sort.Order(direction, property));
+            } else {
+                log.warn("Invalid sort field: {}. Using default sort.", property);
+            }
+        }
+
+        return orders.isEmpty()
+                ? Sort.by(Sort.Direction.DESC, "createdAt")
+                : Sort.by(orders);
+    }
+
+    private boolean isValidSortField(String field) {
+        // Define allowed sort fields
+        List<String> validFields = List.of(
+                "createdAt", "updatedAt", "name", "basePrice", "averageRating"
         );
-
-        Page<Product> products = productRepository.findAll(spec, sortedPageable);
-
-        return products.map(this::mapToProductDTO);
-
+        return validFields.contains(field);
     }
 
     //get product throught slug

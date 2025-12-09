@@ -2,6 +2,7 @@ package com.nala.armoire.controller;
 
 import com.nala.armoire.annotation.CurrentUser;
 import com.nala.armoire.model.dto.request.AddReviewRequest;
+import com.nala.armoire.model.dto.response.PagedResponse;
 import com.nala.armoire.model.dto.response.ProductDTO;
 import com.nala.armoire.model.dto.response.ProductVariantDTO;
 import com.nala.armoire.model.dto.response.ReviewDTO;
@@ -9,7 +10,6 @@ import com.nala.armoire.security.UserPrincipal;
 import com.nala.armoire.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -34,25 +34,25 @@ public class ProductController {
      */
 
     @GetMapping
-    public ResponseEntity<Page<ProductDTO>> getProducts(
-            @RequestParam(required = false) UUID categoryId,
-            @RequestParam(required = false) UUID brandId,
+    public ResponseEntity<PagedResponse<ProductDTO>> getProducts(
+            @RequestParam(required = false) List<String> category,
+            @RequestParam(required = false) List<String> brand,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
-            @RequestParam(required = false) String size,
-            @RequestParam(required = false) String color,
-            @RequestParam(required = false) Boolean isCustomizable,
-            @RequestParam(required = false) String material,
-            @RequestParam(required = false, defaultValue = "createdAt") String sortBy,
-            @RequestParam(required = false, defaultValue = "DESC") String sortDirection,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+            @RequestParam(required = false) List<String> size,
+            @RequestParam(required = false) List<String> color,
+            @RequestParam(required = false) Boolean customizable,
+            @RequestParam(defaultValue = "createdAt:desc") String sort,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "24") int limit
     ) {
-
-        Page<ProductDTO> products = productService.getProducts(
-                categoryId, brandId, minPrice, maxPrice, size, color,
-                isCustomizable, material, sortBy, sortDirection, pageable
+        PagedResponse<ProductDTO> products = productService.getProducts(
+                category, brand, minPrice, maxPrice, size, color,
+                customizable, sort, page, limit
         );
-                return ResponseEntity.ok(products);
+
+        return ResponseEntity.ok(products);
+
     }
 
     //GET /api/v1/products/:slug - Get product details by slug
@@ -89,8 +89,13 @@ public class ProductController {
             @PathVariable UUID id,
             @Valid @RequestBody AddReviewRequest request,
             @CurrentUser UserPrincipal currentUser
-            ) {
+    ) {
         ReviewDTO review = productService.addProductReview(id, currentUser.getId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(review);
     }
+
+
+//    GET /api/v1/products/{productId}/compatible-designs
+
+
 }
