@@ -1,5 +1,6 @@
 package com.nala.armoire.exception;
 
+import com.nala.armoire.model.dto.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,21 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleValidation(ValidationException ex) {
+        log.error("Validation error: {}", ex.getMessage());
+
+        if (ex.getErrors() != null) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(ex.getMessage(), "VALIDATION_ERROR", ex.getErrors()));
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage(), "VALIDATION_ERROR"));
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

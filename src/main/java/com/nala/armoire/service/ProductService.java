@@ -151,7 +151,7 @@ public class ProductService {
         return validFields.contains(field);
     }
 
-    //get product throught slug
+    //get product through slug
 
     @Transactional(readOnly = true)
     public ProductDTO getProductBySlug(String slug) {

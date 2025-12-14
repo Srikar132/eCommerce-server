@@ -2,14 +2,14 @@ package com.nala.armoire.controller;
 
 import com.nala.armoire.annotation.CurrentUser;
 import com.nala.armoire.model.dto.request.AddReviewRequest;
-import com.nala.armoire.model.dto.response.PagedResponse;
-import com.nala.armoire.model.dto.response.ProductDTO;
-import com.nala.armoire.model.dto.response.ProductVariantDTO;
-import com.nala.armoire.model.dto.response.ReviewDTO;
+import com.nala.armoire.model.dto.response.*;
 import com.nala.armoire.security.UserPrincipal;
+import com.nala.armoire.service.DesignService;
 import com.nala.armoire.service.ProductService;
+import com.nala.armoire.util.PagedResponseUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -23,12 +23,14 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
 public class ProductController {
 
     private final ProductService productService;
+    private final DesignService designService;
     /*
      * GET /api/v1/products - List products with filters
      */
@@ -83,7 +85,7 @@ public class ProductController {
     }
 
     //POST /api/v1/products/:id/reviews - Add review (Authenticated users only)
-    @PostMapping("/{id}/reviews")
+    @PostMapping("/{id}/review")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ReviewDTO> addProductReview(
             @PathVariable UUID id,
@@ -95,7 +97,25 @@ public class ProductController {
     }
 
 
-//    GET /api/v1/products/{productId}/compatible-designs
+    //  GET /api/v1/products/{productId}/compatible-designs
+    @GetMapping("/{id}/compatible-designs")
+    public ResponseEntity<ApiResponse<PagedResponse<DesignListDTO>>> getCompatibleDesigns(
+            @PathVariable Long id,
+            @RequestParam String productType,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "20") Integer size) {
 
+        log.info("GET /api/products/{}/compatible-designs?productType={}", id, productType);
+
+        Page<DesignListDTO> pageResult =
+                designService.getCompatibleDesigns(id, productType, page, size);
+
+        PagedResponse<DesignListDTO> response =
+                PagedResponseUtil.fromPage(pageResult);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(response, "Compatible designs retrieved")
+        );
+    }
 
 }

@@ -2,7 +2,10 @@ package com.nala.armoire.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.UUID;
 
@@ -19,8 +22,8 @@ public class Design {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "design_category_id")
-    private DesignCategory designCategory;
+    @JoinColumn(name = "design_category_id", nullable = false)
+    private DesignCategory category;
 
     @Column(nullable = false, length = 255)
     private String name;
@@ -37,18 +40,26 @@ public class Design {
     @Column(name = "thumbnail_url", columnDefinition = "TEXT")
     private String thumbnailUrl;
 
-    @Column(name = "base_price", nullable = false)
-    private Double basePrice;
+    @Column(length = 500)
+    private String tags;
 
-    @Column(name = "complexity_level", length = 20)
-    private String complexityLevel; // SIMPLE, MEDIUM, COMPLEX
-
-    @Column(name = "estimated_days")
-    private Integer estimatedDays = 3;
+    @Column(name = "allowed_product_types", columnDefinition = "TEXT")
+    private String allowedProductTypes;
 
     @Column(name = "is_active")
     private Boolean isActive = true;
 
-    @Column(name = "created_at")
-    private Date createdAt = new Date();
+    @Column(name = "is_premium")
+    private Boolean isPremium = false;
+
+    @Column(name = "download_count")
+    private Long downloadCount = 0L;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false, nullable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 }
