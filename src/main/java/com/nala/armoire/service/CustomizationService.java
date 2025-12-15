@@ -275,7 +275,7 @@ public class CustomizationService {
 
 
     @Transactional(readOnly = true)
-    public Optional<CustomizationDTO> getLatestCustomizationForProduct(UUID userId, Long productId) {
+    public Optional<CustomizationDTO> getLatestCustomizationForProduct(UUID userId, UUID productId) {
         log.info("Fetching latest customization for user: {}, product: {}", userId, productId);
 
         return customizationRepository.findTopByUserIdAndProductIdOrderByUpdatedAtDesc(userId, productId)
