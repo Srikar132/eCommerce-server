@@ -57,5 +57,5 @@ public interface DesignRepository extends JpaRepository<Design, UUID> {
 
     // Get designs by IDs (for batch operations)
     @Query("SELECT d FROM Design d JOIN FETCH d.category WHERE d.id IN :ids AND d.isActive = true")
-    List<Design> findAllByIdInWithCategory(@Param("ids") List<Long> ids);
+    List<Design> findAllByIdInWithCategory(@Param("ids") List<UUID> ids);
 }

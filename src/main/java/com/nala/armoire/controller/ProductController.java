@@ -44,17 +44,26 @@ public class ProductController {
             @RequestParam(required = false) List<String> size,
             @RequestParam(required = false) List<String> color,
             @RequestParam(required = false) Boolean customizable,
-            @RequestParam(defaultValue = "createdAt:desc") String sort,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "24") int limit
+            @PageableDefault(size = 24, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        PagedResponse<ProductDTO> products = productService.getProducts(
+        Page<ProductDTO> pageResult = productService.getProducts(
                 category, brand, minPrice, maxPrice, size, color,
-                customizable, sort, page, limit
+                customizable, pageable
         );
 
-        return ResponseEntity.ok(products);
+        PagedResponse<ProductDTO> response = PagedResponse.<ProductDTO>builder()
+                .content(pageResult.getContent())
+                .page(pageResult.getNumber() + 1) // Convert 0-based to 1-based
+                .size(pageResult.getSize())
+                .totalElements(pageResult.getTotalElements())
+                .totalPages(pageResult.getTotalPages())
+                .first(pageResult.isFirst())
+                .last(pageResult.isLast())
+                .hasNext(pageResult.hasNext())
+                .hasPrevious(pageResult.hasPrevious())
+                .build();
 
+        return ResponseEntity.ok(response);
     }
 
     //GET /api/v1/products/:slug - Get product details by slug

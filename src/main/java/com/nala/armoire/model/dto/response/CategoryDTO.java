@@ -27,4 +27,5 @@ public class CategoryDTO {
     private Boolean isActive;
     private LocalDateTime createdAt;
     private Long productCount;
+
 }
