@@ -55,7 +55,7 @@ public interface CustomizationRepository extends JpaRepository<Customization, UU
     );
 
     // find recent customizations
-    Optional<Customization> findTopByUserIdAndProductIdOrderByUpdatedAtDesc(UUID userId, UUID productId);
+    Optional<Customization> findTopByUserIdAndProductIdOrderByUpdatedAtDesc(UUID userId, Long productId);
 
     @Modifying
     @Query("UPDATE Customization c SET c.lastAccessedAt = :accessTime WHERE c.id = :id")

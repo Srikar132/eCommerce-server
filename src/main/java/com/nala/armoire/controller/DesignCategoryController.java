@@ -58,7 +58,5 @@ public class DesignCategoryController {
                 ApiResponse.success(response, " Designs retrieved successfully ")
         );
     }
-
-
 }
 

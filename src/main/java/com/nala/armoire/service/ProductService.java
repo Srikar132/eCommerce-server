@@ -36,7 +36,7 @@ public class ProductService {
 
     //get all products
     @Transactional(readOnly = true)
-    public Page<ProductDTO> getProducts(
+    public PagedResponse<ProductDTO> getProducts(
             List<String> categorySlugs,
             List<String> brandSlugs,
             BigDecimal minPrice,
@@ -44,9 +44,15 @@ public class ProductService {
             List<String> sizes,
             List<String> colors,
             Boolean isCustomizable,
-            Pageable pageable
+            String sort,
+            int page,
+            int limit
     ) {
+
         Specification<Product> spec = (root, query, cb) -> cb.conjunction();
+
+//        spec = spec.and(ProductSpecification.isActive());
+
 
         if (categorySlugs != null && !categorySlugs.isEmpty()) {
             spec = spec.and(ProductSpecification.hasCategorySlugs(categorySlugs));
@@ -76,13 +82,77 @@ public class ProductService {
             spec = spec.and(ProductSpecification.hasVariantWithColors(colors));
         }
 
+        Sort sorting = parseSortParameter(sort);
+
+        Pageable pageable = PageRequest.of(page - 1, limit, sorting);
+
         Page<Product> productPage = productRepository.findAll(spec, pageable);
 
-        return productPage.map(this::mapToProductDTO);
+//        System.out.println(productPage);
+
+        List<ProductDTO> productDTOs = productPage.getContent()
+                .stream()
+                .map(this::mapToProductDTO)
+                .collect(Collectors.toList());
+
+        System.out.println(productDTOs.size());
+
+
+        return PagedResponse.<ProductDTO>builder()
+                .content(productDTOs)
+                .page(page)
+                .size(productPage.getSize())
+                .totalElements(productPage.getTotalElements())
+                .totalPages(productPage.getTotalPages())
+                .first(productPage.isFirst())
+                .last(productPage.isLast())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .build();
     }
 
+    private Sort parseSortParameter(String sortParam) {
+        if (sortParam == null || sortParam.trim().isEmpty()) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+
+        List<Sort.Order> orders = new ArrayList<>();
+        String[] sortFields = sortParam.split(",");
+
+        for (String field : sortFields) {
+            String[] parts = field.trim().split(":");
+            String property = parts[0].trim();
+            Sort.Direction direction = Sort.Direction.DESC;
+
+            if (parts.length > 1) {
+                direction = "asc".equalsIgnoreCase(parts[1].trim())
+                        ? Sort.Direction.ASC
+                        : Sort.Direction.DESC;
+            }
+
+            // Validate sort fields
+            if (isValidSortField(property)) {
+                orders.add(new Sort.Order(direction, property));
+            } else {
+                log.warn("Invalid sort field: {}. Using default sort.", property);
+            }
+        }
+
+        return orders.isEmpty()
+                ? Sort.by(Sort.Direction.DESC, "createdAt")
+                : Sort.by(orders);
+    }
+
+    private boolean isValidSortField(String field) {
+        // Define allowed sort fields
+        List<String> validFields = List.of(
+                "createdAt", "updatedAt", "name", "basePrice", "averageRating"
+        );
+        return validFields.contains(field);
+    }
 
     //get product through slug
+
     @Transactional(readOnly = true)
     public ProductDTO getProductBySlug(String slug) {
         Product product = productRepository.findBySlugAndIsActiveTrue(slug)

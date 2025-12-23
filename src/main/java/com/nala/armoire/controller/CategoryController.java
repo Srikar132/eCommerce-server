@@ -104,5 +104,4 @@ public class CategoryController {
         CategoryDTO category = categoryService.getCategoryWithAllDescendants(slug);
         return ResponseEntity.ok(category);
     }
-
 }

@@ -1,5 +1,6 @@
 package com.nala.armoire.repository;
 
+import com.nala.armoire.model.entity.Design;
 import com.nala.armoire.model.entity.DesignCategory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -10,7 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface DesignCategoryRepository extends JpaRepository<DesignCategory, UUID> {
+public interface DesignCategoryRepository extends JpaRepository<Design, UUID> {
 
     Optional<DesignCategory> findBySlug(String slug);
 

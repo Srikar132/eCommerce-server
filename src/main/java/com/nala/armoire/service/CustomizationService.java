@@ -39,8 +39,6 @@ public class CustomizationService {
     private static final int MAX_TEXT_LENGTH = 500;
     private static final List<String> ALLOWED_IMAGE_TYPES = List.of("PNG", "JPG", "JPEG");
 
-    // later => generatePreviewImage comes from frontend
-
     //validation
     public ValidateResponse validateConfiguration(UUID productId, CustomizationConfigDTO config) {
         log.info("Validating customization configuration for product: {}", productId);
@@ -194,7 +192,7 @@ public class CustomizationService {
     }
 
     @Transactional(readOnly = true)
-    public List<CustomizationDTO> getUserCustomizationsForProduct(UUID userId, Long productId) {
+    public List<CustomizationDTO> getUserCustomizationsForProduct(UUID userId, UUID productId) {
         log.info("Fetching customizations for user: {}, product: {}", userId, productId);
 
         List<Customization> customizations = customizationRepository
@@ -218,61 +216,89 @@ public class CustomizationService {
 
     @Transactional
     public SaveCustomizationResponse saveCustomization(CustomizationRequest request, UUID userId) {
+        log.info("Saving customization for product: {}, user: {}", request.getProductId(), userId);
 
-        log.info("Saving customization for product: {}, user: {}",
-                request.getProductId(), userId);
-
-        // 1️⃣ Validate configuration (VERY IMPORTANT)
+        // 1️⃣ Validate configuration
         ValidateResponse validation = validateConfiguration(
                 request.getProductId(),
                 request.getConfiguration()
         );
 
         if (!validation.getIsValid()) {
-            throw new ValidationException("Invalid customization", validation.getErrors());
+            throw new ValidationException("Invalid customization configuration", validation.getErrors());
         }
 
-        // 2️⃣ Validate preview URLs from frontend
-        validatePreviewUrls(
-                request.getPreviewImageUrl(),
-                request.getThumbnailUrl()
-        );
+        // 2️ Validate preview URLs from frontend (REQUIRED - frontend generates these)
+        validatePreviewUrls(request.getPreviewImageUrl(), request.getThumbnailUrl());
 
-        // 3️⃣ Analyze configuration (metadata)
-        CustomizationMetadata metadata =
-                analyzeConfiguration(request.getConfiguration());
+        // 3️ Analyze configuration metadata
+        CustomizationMetadata metadata = analyzeConfiguration(request.getConfiguration());
 
-        // 4️⃣ Create customization entity
-        String customizationId = UUID.randomUUID().toString();
+        // 4️ Check if updating existing customization or creating new one
+        Customization customization;
+        boolean isUpdate = false;
 
-        Customization customization = Customization.builder()
-                .customizationId(customizationId)
-                .userId(userId)
-                .sessionId(request.getSessionId())
-                .productId(request.getProductId())
-                .previewImageUrl(request.getPreviewImageUrl())
-                .thumbnailUrl(request.getThumbnailUrl())
-                .configurationJson(convertConfigToJson(request.getConfiguration()))
-                .hasText(metadata.hasText)
-                .hasDesign(metadata.hasDesign)
-                .hasUploadedImage(metadata.hasUploadedImage)
-                .layerCount(metadata.layerCount)
-                .isCompleted(true)
-                .lastAccessedAt(LocalDateTime.now())
-                .build();
+        if (request.getCustomizationId() != null && !request.getCustomizationId().isBlank()) {
+            // Update existing customization
+            customization = customizationRepository.findByCustomizationId(request.getCustomizationId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Customization not found: " + request.getCustomizationId()));
+
+            // Security check
+            if (userId != null && customization.getUserId() != null &&
+                    !customization.getUserId().equals(userId)) {
+                throw new ValidationException("Access denied to customization");
+            }
+
+            // Update fields
+            customization.setPreviewImageUrl(request.getPreviewImageUrl());
+            customization.setThumbnailUrl(request.getThumbnailUrl());
+            customization.setConfigurationJson(convertConfigToJson(request.getConfiguration()));
+            customization.setHasText(metadata.hasText);
+            customization.setHasDesign(metadata.hasDesign);
+            customization.setHasUploadedImage(metadata.hasUploadedImage);
+            customization.setLayerCount(metadata.layerCount);
+            customization.setIsCompleted(true);
+            customization.setLastAccessedAt(LocalDateTime.now());
+
+            isUpdate = true;
+            log.info("Updating existing customization: {}", customization.getCustomizationId());
+        } else {
+            // Create new customization
+            String customizationId = UUID.randomUUID().toString();
+
+            customization = Customization.builder()
+                    .customizationId(customizationId)
+                    .userId(userId)
+                    .sessionId(request.getSessionId())
+                    .productId(request.getProductId())
+                    .previewImageUrl(request.getPreviewImageUrl())
+                    .thumbnailUrl(request.getThumbnailUrl())
+                    .configurationJson(convertConfigToJson(request.getConfiguration()))
+                    .hasText(metadata.hasText)
+                    .hasDesign(metadata.hasDesign)
+                    .hasUploadedImage(metadata.hasUploadedImage)
+                    .layerCount(metadata.layerCount)
+                    .isCompleted(true)
+                    .lastAccessedAt(LocalDateTime.now())
+                    .build();
+
+            log.info("Creating new customization: {}", customizationId);
+        }
 
         customizationRepository.save(customization);
 
-        log.info("Customization saved successfully: {}", customizationId);
+        log.info("Customization saved successfully: {}", customization.getCustomizationId());
 
         return SaveCustomizationResponse.builder()
-                .customizationId(customizationId)
-                .previewUrl(request.getPreviewImageUrl())
-                .thumbnailUrl(request.getThumbnailUrl())
+                .customizationId(customization.getCustomizationId())
+                .previewUrl(customization.getPreviewImageUrl())
+                .thumbnailUrl(customization.getThumbnailUrl())
                 .createdAt(customization.getCreatedAt())
+                .updatedAt(customization.getUpdatedAt())
+                .isUpdate(isUpdate)
                 .build();
     }
-
 
     @Transactional(readOnly = true)
     public Optional<CustomizationDTO> getLatestCustomizationForProduct(UUID userId, UUID productId) {
@@ -280,6 +306,35 @@ public class CustomizationService {
 
         return customizationRepository.findTopByUserIdAndProductIdOrderByUpdatedAtDesc(userId, productId)
                 .map(this::convertToDto);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomizationDTO> getGuestCustomizationsForProduct(String sessionId, UUID productId) {
+        log.info("Fetching guest customizations for session: {}, product: {}", sessionId, productId);
+
+        List<Customization> customizations = customizationRepository
+                .findBySessionIdAndProductId(sessionId, productId);
+
+        return customizations.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void deleteCustomization(String customizationId, UUID userId) {
+        log.info("Deleting customization: {} for user: {}", customizationId, userId);
+
+        Customization customization = customizationRepository.findByCustomizationId(customizationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customization not found: " + customizationId));
+
+        // Security check
+        if (userId != null && customization.getUserId() != null &&
+                !customization.getUserId().equals(userId)) {
+            throw new ValidationException("Access denied to customization");
+        }
+
+        customizationRepository.delete(customization);
+        log.info("Customization deleted successfully: {}", customizationId);
     }
 
     private CustomizationMetadata analyzeConfiguration(CustomizationConfigDTO config) {
@@ -350,24 +405,21 @@ public class CustomizationService {
     }
 
     private void validatePreviewUrls(String previewUrl, String thumbnailUrl) {
-
         if (previewUrl == null || previewUrl.isBlank()) {
-            throw new ValidationException("Preview image URL is required");
+            throw new ValidationException("Preview image URL is required. Please generate preview in frontend.");
         }
 
         if (thumbnailUrl == null || thumbnailUrl.isBlank()) {
-            throw new ValidationException("Thumbnail URL is required");
+            throw new ValidationException("Thumbnail URL is required. Please generate thumbnail in frontend.");
         }
 
-        // Optional but recommended
-        if (!previewUrl.startsWith("https://")) {
-            throw new ValidationException("Invalid preview image URL");
+        // Validate URL format (basic check)
+        if (!previewUrl.startsWith("https://") && !previewUrl.startsWith("http://")) {
+            throw new ValidationException("Invalid preview image URL format");
         }
 
-        if (!thumbnailUrl.startsWith("https://")) {
-            throw new ValidationException("Invalid thumbnail image URL");
+        if (!thumbnailUrl.startsWith("https://") && !thumbnailUrl.startsWith("http://")) {
+            throw new ValidationException("Invalid thumbnail URL format");
         }
-
     }
-
 }
