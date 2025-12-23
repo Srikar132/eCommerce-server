@@ -21,7 +21,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -37,8 +36,6 @@ public class ProductController {
     private final ProductSearchService productSearchService;
     private final ProductSyncService productSyncService;
 
-
-
     @PostMapping("/sync-products")
     public ResponseEntity<String> syncAllProducts() {
         productSyncService.syncAllProducts();
@@ -49,7 +46,6 @@ public class ProductController {
     /*
      * GET /api/v1/products - List products with filters
      */
-
     @GetMapping
     public ResponseEntity<ProductSearchResponse> getProducts(
             @RequestParam(required = false) List<String> category,
