@@ -34,7 +34,6 @@ public class ProductController {
     /*
      * GET /api/v1/products - List products with filters
      */
-
     @GetMapping
     public ResponseEntity<PagedResponse<ProductDTO>> getProducts(
             @RequestParam(required = false) List<String> category,
@@ -113,7 +112,6 @@ public class ProductController {
             @RequestParam String productType,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-
         log.info("GET /api/products/{}/compatible-designs?productType={}", id, productType);
 
         Page<DesignListDTO> pageResult =

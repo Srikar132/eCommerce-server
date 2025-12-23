@@ -29,7 +29,6 @@ public class CartService {
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
     private final ProductVariantRepository productVariantRepository;
-    private final CustomizationSummary customizationSummary;
     private final CartMapper cartMapper;
     private final CustomizationRepository customizationRepository;
 
