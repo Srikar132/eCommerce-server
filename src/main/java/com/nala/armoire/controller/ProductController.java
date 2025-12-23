@@ -5,7 +5,9 @@ import com.nala.armoire.model.dto.request.AddReviewRequest;
 import com.nala.armoire.model.dto.response.*;
 import com.nala.armoire.security.UserPrincipal;
 import com.nala.armoire.service.DesignService;
+import com.nala.armoire.service.ProductSearchService;
 import com.nala.armoire.service.ProductService;
+import com.nala.armoire.service.ProductSyncService;
 import com.nala.armoire.util.PagedResponseUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,36 +33,35 @@ public class ProductController {
 
     private final ProductService productService;
     private final DesignService designService;
+    private final ProductSearchService productSearchService;
+    private final ProductSyncService productSyncService;
+
+    @PostMapping("/sync-products")
+    public ResponseEntity<String> syncAllProducts() {
+        productSyncService.syncAllProducts();
+        return ResponseEntity.ok("Synced all products to Elasticsearch");
+    }
+
+
     /*
      * GET /api/v1/products - List products with filters
      */
     @GetMapping
-    public ResponseEntity<PagedResponse<ProductDTO>> getProducts(
+    public ResponseEntity<ProductSearchResponse> getProducts(
             @RequestParam(required = false) List<String> category,
             @RequestParam(required = false) List<String> brand,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
-            @RequestParam(required = false) List<String> size,
+            @RequestParam(required = false) List<String> productSize,
+            @RequestParam(required = false) String searchQuery,
             @RequestParam(required = false) List<String> color,
             @RequestParam(required = false) Boolean customizable,
             @PageableDefault(size = 24, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
-    ) {
-        Page<ProductDTO> pageResult = productService.getProducts(
-                category, brand, minPrice, maxPrice, size, color,
-                customizable, pageable
+    )  {
+        ProductSearchResponse response = productSearchService.getProducts(
+                category, brand, minPrice, maxPrice, productSize, color,
+                customizable, searchQuery, pageable
         );
-
-        PagedResponse<ProductDTO> response = PagedResponse.<ProductDTO>builder()
-                .content(pageResult.getContent())
-                .page(pageResult.getNumber() + 1) // Convert 0-based to 1-based
-                .size(pageResult.getSize())
-                .totalElements(pageResult.getTotalElements())
-                .totalPages(pageResult.getTotalPages())
-                .first(pageResult.isFirst())
-                .last(pageResult.isLast())
-                .hasNext(pageResult.hasNext())
-                .hasPrevious(pageResult.hasPrevious())
-                .build();
 
         return ResponseEntity.ok(response);
     }
@@ -112,6 +113,7 @@ public class ProductController {
             @RequestParam String productType,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
+
         log.info("GET /api/products/{}/compatible-designs?productType={}", id, productType);
 
         Page<DesignListDTO> pageResult =
