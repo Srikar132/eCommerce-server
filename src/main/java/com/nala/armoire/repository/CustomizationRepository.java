@@ -26,7 +26,7 @@ public interface CustomizationRepository extends JpaRepository<Customization, UU
             "ORDER BY c.updatedAt DESC")
     List<Customization> findByUserIdAndProductId(
             @Param("userId") UUID userId,
-            @Param("productId") Long productId
+            @Param("productId") UUID productId
     );
 
     // Find user's all customizations
@@ -42,7 +42,7 @@ public interface CustomizationRepository extends JpaRepository<Customization, UU
             "AND c.userId IS NULL ORDER BY c.updatedAt DESC")
     List<Customization> findBySessionIdAndProductId(
             @Param("sessionId") String sessionId,
-            @Param("productId") Long productId
+            @Param("productId") UUID productId
     );
 
     Long countByUserId(UUID userId);
@@ -55,7 +55,7 @@ public interface CustomizationRepository extends JpaRepository<Customization, UU
     );
 
     // find recent customizations
-    Optional<Customization> findTopByUserIdAndProductIdOrderByUpdatedAtDesc(UUID userId, Long productId);
+    Optional<Customization> findTopByUserIdAndProductIdOrderByUpdatedAtDesc(UUID userId, UUID productId);
 
     @Modifying
     @Query("UPDATE Customization c SET c.lastAccessedAt = :accessTime WHERE c.id = :id")

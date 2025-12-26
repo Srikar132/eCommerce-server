@@ -11,7 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface DesignCategoryRepository extends JpaRepository<Design, UUID> {
+public interface DesignCategoryRepository extends JpaRepository<DesignCategory, UUID> {
 
     Optional<DesignCategory> findBySlug(String slug);
 
