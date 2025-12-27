@@ -82,18 +82,24 @@ public class Cart {
     }
 
     public void recalculateTotals() {
+
         this.subtotal = items.stream()
-                .map(CartItem::getItemTotal)
+                .map(item -> item.getItemTotal() != null
+                        ? item.getItemTotal()
+                        : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal taxableAmount = subtotal.subtract(discountAmount);
+        BigDecimal safeDiscount = discountAmount != null ? discountAmount : BigDecimal.ZERO;
+
+        BigDecimal taxableAmount = subtotal.subtract(safeDiscount);
+
         this.taxAmount = taxableAmount
                 .multiply(BigDecimal.valueOf(0.10))
                 .setScale(2, BigDecimal.ROUND_HALF_UP);
 
-        // Calculate total
-        this.total = subtotal.subtract(discountAmount).add(taxAmount);
+        this.total = subtotal.subtract(safeDiscount).add(taxAmount);
     }
+
 
     public void clearItems() {
         items.clear();
@@ -102,8 +108,9 @@ public class Cart {
 
     public int getTotalItemCount() {
         return items.stream()
-                .mapToInt(CartItem::getQuantity)
+                .mapToInt(item -> item.getQuantity() != null ? item.getQuantity() : 0)
                 .sum();
     }
+
 
 }
