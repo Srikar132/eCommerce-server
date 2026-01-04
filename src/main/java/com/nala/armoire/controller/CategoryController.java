@@ -80,7 +80,6 @@ public class CategoryController {
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         Page<ProductDTO> pageResult = categoryService.getProductsByCategory(slug, pageable);
-
         PagedResponse<ProductDTO> response = PagedResponse.<ProductDTO>builder()
                 .content(pageResult.getContent())
                 .page(pageResult.getNumber())

@@ -24,12 +24,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class ProductSearchService {
-    private final ElasticsearchClient elasticsearchClient;
 
+    private final ElasticsearchClient elasticsearchClient;
 
     /**
      * Get products with filters and including facets for them
-     *
      */
     public ProductSearchResponse getProducts(
             List<String> categorySlugs,
