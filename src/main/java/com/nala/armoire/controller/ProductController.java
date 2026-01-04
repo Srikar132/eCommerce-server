@@ -126,5 +126,4 @@ public class ProductController {
                 ApiResponse.success(response, "Compatible designs retrieved")
         );
     }
-
 }

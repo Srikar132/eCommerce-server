@@ -47,25 +47,4 @@ public class CategoryController {
         );
         return ResponseEntity.ok(categories);
     }
-
-    /**
-     * Get single category by slug with detailed information
-     *
-     * @param slug - Category slug
-     * @param includeChildren - Include direct subcategories
-     * @param includeProductCount - Include product count
-     * @param includePath - Include full category path
-     */
-    @GetMapping("/{slug}")
-    public ResponseEntity<CategoryDTO> getCategoryBySlug(
-            @PathVariable String slug,
-            @RequestParam(defaultValue = "false") Boolean includeChildren,
-            @RequestParam(defaultValue = "false") Boolean includeProductCount,
-            @RequestParam(defaultValue = "true") Boolean includePath
-    ) {
-        CategoryDTO category = categoryService.getCategoryBySlug(
-                slug, includeChildren, includeProductCount, includePath
-        );
-        return ResponseEntity.ok(category);
-    }
 }
