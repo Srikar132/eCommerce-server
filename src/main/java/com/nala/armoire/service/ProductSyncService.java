@@ -131,6 +131,42 @@ public class ProductSyncService {
                         .average()
                         .orElse(0.0);
 
+        // ==================== BUILD CATEGORY HIERARCHY ====================
+        List<String> allCategorySlugs = new java.util.ArrayList<>();
+        List<String> categoryPath = new java.util.ArrayList<>();
+        String parentCategorySlug = null;
+        String parentCategoryName = null;
+        String parentCategoryId = null;
+
+        if (product.getCategory() != null) {
+            Category currentCategory = product.getCategory();
+            
+            // Add leaf category (product's direct category)
+            allCategorySlugs.add(currentCategory.getSlug());
+            categoryPath.add(currentCategory.getSlug());
+
+            // Traverse up the parent hierarchy
+            Category parent = currentCategory.getParent();
+            if (parent != null) {
+                // Store immediate parent
+                parentCategorySlug = parent.getSlug();
+                parentCategoryName = parent.getName();
+                parentCategoryId = parent.getId().toString();
+
+                // Add parent to lists
+                allCategorySlugs.add(parent.getSlug());
+                categoryPath.add(0, parent.getSlug()); // Add to beginning for correct order
+
+                // Continue up the tree (e.g., Men > Topwear > T-Shirts)
+                Category grandParent = parent.getParent();
+                while (grandParent != null) {
+                    allCategorySlugs.add(grandParent.getSlug());
+                    categoryPath.add(0, grandParent.getSlug());
+                    grandParent = grandParent.getParent();
+                }
+            }
+        }
+
         return ProductDocument.builder()
                 .id(product.getId().toString())
                 .name(product.getName())
@@ -141,19 +177,31 @@ public class ProductSyncService {
                 .isCustomizable(product.getIsCustomizable())
                 .material(product.getMaterial())
                 .careInstructions(product.getCareInstructions())
+                // Leaf category (direct)
                 .categorySlug(product.getCategory() != null ? product.getCategory().getSlug() : null)
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .categoryId(product.getCategory() != null ? product.getCategory().getId().toString() : null)
+                // Parent category
+                .parentCategorySlug(parentCategorySlug)
+                .parentCategoryName(parentCategoryName)
+                .parentCategoryId(parentCategoryId)
+                // Hierarchy fields
+                .allCategorySlugs(allCategorySlugs)
+                .categoryPath(categoryPath)
+                // Brand
                 .brandSlug(product.getBrand() != null ? product.getBrand().getSlug() : null)
                 .brandName(product.getBrand() != null ? product.getBrand().getName() : null)
                 .brandId(product.getBrand() != null ? product.getBrand().getId().toString() : null)
+                // Variants & Images
                 .variants(variantInfos)
                 .availableSizes(availableSizes)
                 .availableColors(availableColors)
                 .images(imageInfos)
                 .primaryImageUrl(primaryImageUrl)
+                // Reviews
                 .averageRating(averageRating)
                 .reviewCount((long) product.getReviews().size())
+                // Status
                 .isActive(product.getIsActive())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())

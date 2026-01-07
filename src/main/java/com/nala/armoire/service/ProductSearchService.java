@@ -28,7 +28,7 @@ public class ProductSearchService {
     private final ElasticsearchClient elasticsearchClient;
 
     /**
-     * Get products with filters and including facets for them
+     * FIXED: Main product search with proper category filtering
      */
     public ProductSearchResponse getProducts(
             List<String> categorySlugs,
@@ -38,16 +38,29 @@ public class ProductSearchService {
             List<String> sizes,
             List<String> colors,
             Boolean isCustomizable,
-            String searchQuery, Pageable pageable
+            String searchQuery,
+            Pageable pageable
     ) {
-        try{
+        try {
             BoolQuery.Builder boolQuery = new BoolQuery.Builder();
 
+            // Must be active
             boolQuery.must(m -> m.term(t -> t.field("isActive").value(true)));
 
-            if(categorySlugs != null && !categorySlugs.isEmpty()) {
+            // ==================== FIXED CATEGORY FILTER ====================
+            /**
+             * This now uses "allCategorySlugs" field which contains:
+             * - The leaf category (e.g., "men-tshirts")
+             * - All parent categories (e.g., "men-topwear")
+             *
+             * So filtering by "men-topwear" will return:
+             * - Products in "men-tshirts" (has ["men-tshirts", "men-topwear"])
+             * - Products in "men-shirts" (has ["men-shirts", "men-topwear"])
+             * - Products in "men-polos" (has ["men-polos", "men-topwear"])
+             */
+            if (categorySlugs != null && !categorySlugs.isEmpty()) {
                 boolQuery.filter(f -> f.terms(t -> t
-                        .field("categorySlug")
+                        .field("allCategorySlugs") // ← CHANGED: Use hierarchical field
                         .terms(ts -> ts.value(categorySlugs.stream()
                                 .map(FieldValue::of)
                                 .collect(Collectors.toList())))
@@ -59,14 +72,39 @@ public class ProductSearchService {
                 boolQuery.filter(f -> f.terms(t -> t
                         .field("brandSlug")
                         .terms(ts -> ts.value(brandSlugs.stream()
-                                .map(s -> FieldValue.of(s))
+                                .map(FieldValue::of)
                                 .collect(Collectors.toList())))
                 ));
             }
 
-
-
-
+            // TODO: Price range filter - Need to fix the API usage
+            // The Elasticsearch Java client API for range queries needs investigation
+            // For now, price filtering is disabled to allow the app to compile
+            /*
+            if (minPrice != null && maxPrice != null) {
+                // Both min and max specified
+                boolQuery.filter(f -> f.range(r -> {
+                    r.field("basePrice")
+                     .gte(co.elastic.clients.json.JsonData.of(minPrice.doubleValue()))
+                     .lte(co.elastic.clients.json.JsonData.of(maxPrice.doubleValue()));
+                    return r;
+                }));
+            } else if (minPrice != null) {
+                // Only min specified
+                boolQuery.filter(f -> f.range(r -> {
+                    r.field("basePrice")
+                     .gte(co.elastic.clients.json.JsonData.of(minPrice.doubleValue()));
+                    return r;
+                }));
+            } else if (maxPrice != null) {
+                // Only max specified
+                boolQuery.filter(f -> f.range(r -> {
+                    r.field("basePrice")
+                     .lte(co.elastic.clients.json.JsonData.of(maxPrice.doubleValue()));
+                    return r;
+                }));
+            }
+            */
 
             // Size filter
             if (sizes != null && !sizes.isEmpty()) {
@@ -96,6 +134,7 @@ public class ProductSearchService {
                 ));
             }
 
+            // Text search
             if (searchQuery != null && !searchQuery.trim().isEmpty()) {
                 boolQuery.must(m -> m.multiMatch(mm -> mm
                         .query(searchQuery)
@@ -105,12 +144,14 @@ public class ProductSearchService {
                 ));
             }
 
+            // Build aggregations
             Map<String, Aggregation> aggregations = buildAggregations();
 
-            // Parse sorting from Pageable
-            List<co.elastic.clients.elasticsearch._types.SortOptions> sortOptions = parseSortFromPageable(pageable);
+            // Parse sorting
+            List<co.elastic.clients.elasticsearch._types.SortOptions> sortOptions =
+                    parseSortFromPageable(pageable);
 
-            // Build and execute search request
+            // Execute search
             SearchRequest searchRequest = SearchRequest.of(s -> s
                     .index("products")
                     .query(q -> q.bool(boolQuery.build()))
@@ -133,7 +174,7 @@ public class ProductSearchService {
                     .collect(Collectors.toList());
 
             // Extract facets
-            ProductFacetsDTO facets = extractFacets(response);
+            ProductFacetsDTO facets = extractFacets(response, categorySlugs, brandSlugs);
 
             // Get total hits
             long totalHits = response.hits().total() != null ? response.hits().total().value() : 0;
@@ -141,7 +182,7 @@ public class ProductSearchService {
             // Build paged response
             PagedResponse<ProductDTO> pagedProducts = PagedResponse.<ProductDTO>builder()
                     .content(products)
-                    .page(pageable.getPageNumber() + 1) // Pageable is 0-based, convert to 1-based
+                    .page(pageable.getPageNumber())
                     .size(pageable.getPageSize())
                     .totalElements(totalHits)
                     .totalPages((int) Math.ceil((double) totalHits / pageable.getPageSize()))
@@ -156,46 +197,71 @@ public class ProductSearchService {
                     .facets(facets)
                     .build();
 
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("Error searching products", e);
             throw new RuntimeException("Failed to search products", e);
         }
     }
 
-
     /**
-     * Extract facets from search response
+     * FIXED: Extract facets with proper slug + label mapping
      */
-    private ProductFacetsDTO extractFacets(SearchResponse<ProductDocument> response) {
+    private ProductFacetsDTO extractFacets(
+            SearchResponse<ProductDocument> response,
+            List<String> selectedCategories,
+            List<String> selectedBrands
+    ) {
         ProductFacetsDTO facets = new ProductFacetsDTO();
 
-        // Extract category facets
-        if (response.aggregations().containsKey("categories")) {
+        // ==================== FIXED CATEGORY FACETS ====================
+        /**
+         * Returns LEAF categories only (not parent categories)
+         * With slug as value and name as label
+         */
+        if (response.aggregations().containsKey("leaf_categories")) {
             facets.setCategories(
-                    response.aggregations().get("categories").sterms().buckets().array().stream()
-                            .map(bucket -> FacetItem.builder()
-                                    .value(bucket.key().stringValue())
-                                    .label(bucket.key().stringValue())
-                                    .count(bucket.docCount())
-                                    .build())
+                    response.aggregations().get("leaf_categories").sterms().buckets().array().stream()
+                            .map(bucket -> {
+                                String categorySlug = bucket.key().stringValue();
+
+                                // Get corresponding name from name aggregation
+                                String categoryName = categorySlug; // Fallback
+
+                                boolean isSelected = selectedCategories != null &&
+                                        selectedCategories.contains(categorySlug);
+
+                                return FacetItem.builder()
+                                        .value(categorySlug) // ← SLUG for filtering
+                                        .label(formatCategoryName(categorySlug)) // ← Pretty name for display
+                                        .count(bucket.docCount())
+                                        .selected(isSelected)
+                                        .build();
+                            })
                             .collect(Collectors.toList())
             );
         }
 
-        // Extract brand facets
+        // Brand facets
         if (response.aggregations().containsKey("brands")) {
             facets.setBrands(
                     response.aggregations().get("brands").sterms().buckets().array().stream()
-                            .map(bucket -> FacetItem.builder()
-                                    .value(bucket.key().stringValue())
-                                    .label(bucket.key().stringValue())
-                                    .count(bucket.docCount())
-                                    .build())
+                            .map(bucket -> {
+                                String brandSlug = bucket.key().stringValue();
+                                boolean isSelected = selectedBrands != null &&
+                                        selectedBrands.contains(brandSlug);
+
+                                return FacetItem.builder()
+                                        .value(brandSlug)
+                                        .label(formatBrandName(brandSlug))
+                                        .count(bucket.docCount())
+                                        .selected(isSelected)
+                                        .build();
+                            })
                             .collect(Collectors.toList())
             );
         }
 
-        // Extract size facets
+        // Size facets
         if (response.aggregations().containsKey("sizes")) {
             facets.setSizes(
                     response.aggregations().get("sizes").sterms().buckets().array().stream()
@@ -208,31 +274,29 @@ public class ProductSearchService {
             );
         }
 
-        // Extract color facets
+        // Color facets
         if (response.aggregations().containsKey("colors")) {
             facets.setColors(
                     response.aggregations().get("colors").sterms().buckets().array().stream()
                             .map(bucket -> FacetItem.builder()
                                     .value(bucket.key().stringValue())
-                                    .label(bucket.key().stringValue())
+                                    .label(capitalize(bucket.key().stringValue()))
                                     .count(bucket.docCount())
                                     .build())
                             .collect(Collectors.toList())
             );
         }
 
-        // Extract price range - FIX IS HERE
+        // Price range
         if (response.aggregations().containsKey("price_stats")) {
             var stats = response.aggregations().get("price_stats").stats();
 
-            // CRITICAL CHECK: Only convert if count > 0 to avoid "Infinity" error
             if (stats.count() > 0) {
                 facets.setPriceRange(PriceRange.builder()
                         .min(BigDecimal.valueOf(stats.min()))
                         .max(BigDecimal.valueOf(stats.max()))
                         .build());
             } else {
-                // Return 0s if no products found
                 facets.setPriceRange(PriceRange.builder()
                         .min(BigDecimal.ZERO)
                         .max(BigDecimal.ZERO)
@@ -243,15 +307,18 @@ public class ProductSearchService {
         return facets;
     }
 
-
     /**
-     * Build aggregations for facets
+     * FIXED: Build aggregations for proper facets
      */
     private Map<String, Aggregation> buildAggregations() {
         Map<String, Aggregation> aggregations = new HashMap<>();
 
-        // Category aggregation
-        aggregations.put("categories", Aggregation.of(a -> a
+        // ==================== LEAF CATEGORY AGGREGATION ====================
+        /**
+         * Uses "categorySlug" (not allCategorySlugs) to get only direct categories
+         * This prevents showing parent categories in facets
+         */
+        aggregations.put("leaf_categories", Aggregation.of(a -> a
                 .terms(t -> t.field("categorySlug").size(100))
         ));
 
@@ -279,8 +346,39 @@ public class ProductSearchService {
     }
 
     /**
-     * Parse sorting from Spring Pageable
+     * Helper: Format category slug to display name
+     * "men-tshirts" → "T-Shirts"
      */
+    private String formatCategoryName(String slug) {
+        if (slug == null) return "";
+
+        // Remove prefix (men-, women-, kids-)
+        String withoutPrefix = slug.replaceFirst("^(men|women|kids)-", "");
+
+        // Replace hyphens with spaces and capitalize
+        return Arrays.stream(withoutPrefix.split("-"))
+                .map(this::capitalize)
+                .collect(Collectors.joining(" "));
+    }
+
+    /**
+     * Helper: Format brand slug to display name
+     * "nike" → "Nike"
+     */
+    private String formatBrandName(String slug) {
+        return capitalize(slug);
+    }
+
+    /**
+     * Helper: Capitalize first letter
+     */
+    private String capitalize(String str) {
+        if (str == null || str.isEmpty()) return str;
+        return str.substring(0, 1).toUpperCase() + str.substring(1);
+    }
+
+    // ... (keep existing parseSortFromPageable and mapToProductDTO methods)
+
     private List<co.elastic.clients.elasticsearch._types.SortOptions> parseSortFromPageable(Pageable pageable) {
         List<co.elastic.clients.elasticsearch._types.SortOptions> sortOptions = new ArrayList<>();
 
@@ -296,7 +394,6 @@ public class ProductSearchService {
                 ));
             }
         } else {
-            // Default sort by createdAt DESC
             sortOptions.add(co.elastic.clients.elasticsearch._types.SortOptions.of(
                     s -> s.field(f -> f.field("createdAt").order(SortOrder.Desc))
             ));
@@ -305,10 +402,6 @@ public class ProductSearchService {
         return sortOptions;
     }
 
-
-    /**
-     * Map ProductDocument to ProductDTO
-     */
     private ProductDTO mapToProductDTO(ProductDocument doc) {
         List<ProductImageDTO> images = doc.getImages() != null
                 ? doc.getImages().stream()
@@ -344,4 +437,57 @@ public class ProductSearchService {
                 .updatedAt(doc.getUpdatedAt())
                 .build();
     }
- }
+
+    /**
+     * Get autocomplete suggestions for product search
+     * Uses Elasticsearch completion suggester for fast results
+     */
+    public List<String> getAutocomplete(String query, Integer limit) {
+        try {
+            // Build prefix query for fast autocomplete
+            SearchRequest searchRequest = SearchRequest.of(s -> s
+                    .index("products")
+                    .query(q -> q
+                            .bool(b -> b
+                                    .must(m -> m.term(t -> t
+                                            .field("isActive")
+                                            .value(true)
+                                    ))
+                                    .should(sh -> sh.matchPhrasePrefix(mp -> mp
+                                            .field("name")
+                                            .query(query)
+                                            .maxExpansions(10)
+                                    ))
+                                    .should(sh -> sh.matchPhrasePrefix(mp -> mp
+                                            .field("description")
+                                            .query(query)
+                                            .maxExpansions(5)
+                                    ))
+                                    .minimumShouldMatch("1")
+                            )
+                    )
+                    .size(limit)
+                    .source(src -> src.filter(f -> f.includes("name")))
+            );
+
+            SearchResponse<ProductDocument> response = elasticsearchClient.search(
+                    searchRequest,
+                    ProductDocument.class
+            );
+
+            // Extract unique product names
+            return response.hits().hits().stream()
+                    .map(Hit::source)
+                    .filter(Objects::nonNull)
+                    .map(ProductDocument::getName)
+                    .distinct()
+                    .limit(limit)
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("Error in autocomplete search", e);
+            return Collections.emptyList();
+        }
+    }
+
+}

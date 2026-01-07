@@ -1,0 +1,1896 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "eCommerce API - Complete Collection",
+		"description": "Complete API collection for eCommerce application with authentication, products, cart, customization, designs, and categories",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "12345678"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global pre-request script",
+					"console.log('Request URL:', pm.request.url.toString());",
+					"console.log('Request Method:', pm.request.method);"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global test script",
+					"pm.test('Response time is less than 5000ms', function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(5000);",
+					"});",
+					"",
+					"pm.test('Status code is successful', function () {",
+					"    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);",
+					"});"
+				]
+			}
+		}
+	],
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    ",
+									"    // Extract tokens from cookies",
+									"    const cookies = pm.cookies.all();",
+									"    const accessTokenCookie = cookies.find(c => c.name === 'accessToken');",
+									"    const refreshTokenCookie = cookies.find(c => c.name === 'refreshToken');",
+									"    ",
+									"    if (accessTokenCookie) {",
+									"        pm.environment.set('accessToken', accessTokenCookie.value);",
+									"    }",
+									"    if (refreshTokenCookie) {",
+									"        pm.environment.set('refreshToken', refreshTokenCookie.value);",
+									"    }",
+									"    ",
+									"    // Store user data",
+									"    if (jsonData.user) {",
+									"        pm.environment.set('userId', jsonData.user.id);",
+									"        pm.environment.set('userEmail', jsonData.user.email);",
+									"    }",
+									"    ",
+									"    pm.test('Registration successful', function () {",
+									"        pm.expect(jsonData.message).to.include('successful');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"{{$randomFirstName}}\",\n  \"lastName\": \"{{$randomLastName}}\",\n  \"email\": \"{{$randomEmail}}\",\n  \"password\": \"Test@123456\",\n  \"phoneNumber\": \"+1234567890\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"register"
+							]
+						},
+						"description": "Register a new user account"
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    ",
+									"    // Extract tokens from cookies",
+									"    const cookies = pm.cookies.all();",
+									"    const accessTokenCookie = cookies.find(c => c.name === 'accessToken');",
+									"    const refreshTokenCookie = cookies.find(c => c.name === 'refreshToken');",
+									"    ",
+									"    if (accessTokenCookie) {",
+									"        pm.environment.set('accessToken', accessTokenCookie.value);",
+									"        console.log('Access token saved to environment');",
+									"    }",
+									"    if (refreshTokenCookie) {",
+									"        pm.environment.set('refreshToken', refreshTokenCookie.value);",
+									"        console.log('Refresh token saved to environment');",
+									"    }",
+									"    ",
+									"    // Store user data",
+									"    if (jsonData.user) {",
+									"        pm.environment.set('userId', jsonData.user.id);",
+									"        pm.environment.set('userEmail', jsonData.user.email);",
+									"        pm.environment.set('userName', jsonData.user.firstName + ' ' + jsonData.user.lastName);",
+									"    }",
+									"    ",
+									"    pm.test('Login successful', function () {",
+									"        pm.expect(jsonData.message).to.include('successful');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"Test@123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Login with email and password"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    ",
+									"    pm.test('User data retrieved', function () {",
+									"        pm.expect(jsonData.user).to.have.property('id');",
+									"        pm.expect(jsonData.user).to.have.property('email');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Get current authenticated user information"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const cookies = pm.cookies.all();",
+									"    const accessTokenCookie = cookies.find(c => c.name === 'accessToken');",
+									"    const refreshTokenCookie = cookies.find(c => c.name === 'refreshToken');",
+									"    ",
+									"    if (accessTokenCookie) {",
+									"        pm.environment.set('accessToken', accessTokenCookie.value);",
+									"    }",
+									"    if (refreshTokenCookie) {",
+									"        pm.environment.set('refreshToken', refreshTokenCookie.value);",
+									"    }",
+									"    ",
+									"    pm.test('Token refreshed successfully', function () {",
+									"        pm.expect(pm.response.json().message).to.include('refreshed');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/refresh",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "Refresh access token using refresh token"
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.environment.unset('accessToken');",
+									"    pm.environment.unset('refreshToken');",
+									"    ",
+									"    pm.test('Logout successful', function () {",
+									"        pm.expect(pm.response.json().message).to.exist;",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/logout",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"logout"
+							]
+						},
+						"description": "Logout and clear authentication cookies"
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Email",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/verify-email?token={{verificationToken}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"verify-email"
+							],
+							"query": [
+								{
+									"key": "token",
+									"value": "{{verificationToken}}"
+								}
+							]
+						},
+						"description": "Verify user email with token"
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot Password",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{userEmail}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/forgot-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"forgot-password"
+							]
+						},
+						"description": "Request password reset email"
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"password\": \"NewPassword@123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/reset-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"reset-password"
+							]
+						},
+						"description": "Reset password with token"
+					},
+					"response": []
+				},
+				{
+					"name": "Resend Verification",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{userEmail}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/resend-verification",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"resend-verification"
+							]
+						},
+						"description": "Resend email verification link"
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication endpoints for user registration, login, and token management"
+		},
+		{
+			"name": "User Profile",
+			"item": [
+				{
+					"name": "Get User Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const profile = pm.response.json();",
+									"    ",
+									"    pm.test('Profile has required fields', function () {",
+									"        pm.expect(profile).to.have.property('id');",
+									"        pm.expect(profile).to.have.property('email');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/profile",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"profile"
+							]
+						},
+						"description": "Get user profile information"
+					},
+					"response": []
+				},
+				{
+					"name": "Update User Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"{{$randomFirstName}}\",\n  \"lastName\": \"{{$randomLastName}}\",\n  \"phoneNumber\": \"+1234567890\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/profile",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"profile"
+							]
+						},
+						"description": "Update user profile information"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Addresses",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const addresses = pm.response.json();",
+									"    ",
+									"    if (addresses.length > 0) {",
+									"        pm.environment.set('addressId', addresses[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/addresses",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"addresses"
+							]
+						},
+						"description": "Get all user addresses"
+					},
+					"response": []
+				},
+				{
+					"name": "Add Address",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const address = pm.response.json();",
+									"    pm.environment.set('addressId', address.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"addressLine1\": \"{{$randomStreetAddress}}\",\n  \"addressLine2\": \"Apt 4B\",\n  \"city\": \"{{$randomCity}}\",\n  \"state\": \"California\",\n  \"country\": \"United States\",\n  \"zipCode\": \"90210\",\n  \"isDefault\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/addresses",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"addresses"
+							]
+						},
+						"description": "Add a new address"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Address",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"addressLine1\": \"{{$randomStreetAddress}}\",\n  \"addressLine2\": \"Suite 200\",\n  \"city\": \"{{$randomCity}}\",\n  \"state\": \"New York\",\n  \"country\": \"United States\",\n  \"zipCode\": \"10001\",\n  \"isDefault\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/addresses/{{addressId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"addresses",
+								"{{addressId}}"
+							]
+						},
+						"description": "Update an existing address"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Address",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/addresses/{{addressId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"addresses",
+								"{{addressId}}"
+							]
+						},
+						"description": "Delete an address"
+					},
+					"response": []
+				}
+			],
+			"description": "User profile and address management endpoints"
+		},
+		{
+			"name": "Products",
+			"item": [
+				{
+					"name": "Sync Products to Elasticsearch",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/products/sync-products",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"products",
+								"sync-products"
+							]
+						},
+						"description": "Sync all products to Elasticsearch"
+					},
+					"response": []
+				},
+				{
+					"name": "Search & Filter Products",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    ",
+									"    if (response.products && response.products.length > 0) {",
+									"        pm.environment.set('productId', response.products[0].id);",
+									"        pm.environment.set('productSlug', response.products[0].slug);",
+									"    }",
+									"    ",
+									"    pm.test('Response has products array', function () {",
+									"        pm.expect(response).to.have.property('products');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/products?page=0&size=24&sort=createdAt&direction=DESC",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"products"
+							],
+							"query": [
+								{
+									"key": "category",
+									"value": "men-tshirts",
+									"disabled": true
+								},
+								{
+									"key": "brand",
+									"value": "nike",
+									"disabled": true
+								},
+								{
+									"key": "minPrice",
+									"value": "500",
+									"disabled": true
+								},
+								{
+									"key": "maxPrice",
+									"value": "2000",
+									"disabled": true
+								},
+								{
+									"key": "productSize",
+									"value": "M,L",
+									"disabled": true
+								},
+								{
+									"key": "color",
+									"value": "black,white",
+									"disabled": true
+								},
+								{
+									"key": "customizable",
+									"value": "true",
+									"disabled": true
+								},
+								{
+									"key": "searchQuery",
+									"value": "cotton shirt",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "24"
+								},
+								{
+									"key": "sort",
+									"value": "createdAt"
+								},
+								{
+									"key": "direction",
+									"value": "DESC"
+								}
+							]
+						},
+						"description": "Search and filter products with multiple criteria"
+					},
+					"response": []
+				},
+				{
+					"name": "Product Autocomplete",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/products/autocomplete?query=cot&limit=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"products",
+								"autocomplete"
+							],
+							"query": [
+								{
+									"key": "query",
+									"value": "cot"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						},
+						"description": "Get product search suggestions"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product by Slug",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const product = pm.response.json();",
+									"    pm.environment.set('productId', product.id);",
+									"    ",
+									"    pm.test('Product has required fields', function () {",
+									"        pm.expect(product).to.have.property('id');",
+									"        pm.expect(product).to.have.property('name');",
+									"        pm.expect(product).to.have.property('slug');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/products/{{productSlug}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"products",
+								"{{productSlug}}"
+							]
+						},
+						"description": "Get single product by slug"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product Variants",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const variants = pm.response.json();",
+									"    ",
+									"    if (variants.length > 0) {",
+									"        pm.environment.set('variantId', variants[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/products/{{productId}}/variants",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"products",
+								"{{productId}}",
+								"variants"
+							]
+						},
+						"description": "Get all variants for a product"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product Reviews",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/products/{{productId}}/reviews?page=0&size=10&sort=createdAt&direction=DESC",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"products",
+								"{{productId}}",
+								"reviews"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "sort",
+									"value": "createdAt"
+								},
+								{
+									"key": "direction",
+									"value": "DESC"
+								}
+							]
+						},
+						"description": "Get paginated reviews for a product"
+					},
+					"response": []
+				},
+				{
+					"name": "Add Product Review",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rating\": 5,\n  \"title\": \"Excellent Product!\",\n  \"comment\": \"This product exceeded my expectations. Great quality and fast shipping.\",\n  \"wouldRecommend\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/products/{{productId}}/review",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"products",
+								"{{productId}}",
+								"review"
+							]
+						},
+						"description": "Add a review to a product (authenticated users only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Compatible Designs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/products/{{productId}}/compatible-designs?productType=tshirt&page=0&size=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"products",
+								"{{productId}}",
+								"compatible-designs"
+							],
+							"query": [
+								{
+									"key": "productType",
+									"value": "tshirt"
+								},
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Get designs compatible with a product"
+					},
+					"response": []
+				}
+			],
+			"description": "Product browsing, search, and review endpoints"
+		},
+		{
+			"name": "Categories",
+			"item": [
+				{
+					"name": "Get Categories (Root Minimal)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/categories?minimal=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"categories"
+							],
+							"query": [
+								{
+									"key": "minimal",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Get root categories with minimal data"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Categories (Full)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const categories = pm.response.json();",
+									"    ",
+									"    if (categories.length > 0) {",
+									"        pm.environment.set('categorySlug', categories[0].slug);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/categories",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"categories"
+							]
+						},
+						"description": "Get all root categories with full data"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Category with Children",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/categories?slug={{categorySlug}}&includeChildren=true&includeProductCount=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"categories"
+							],
+							"query": [
+								{
+									"key": "slug",
+									"value": "{{categorySlug}}"
+								},
+								{
+									"key": "includeChildren",
+									"value": "true"
+								},
+								{
+									"key": "includeProductCount",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Get category with its children and product counts"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Full Category Hierarchy",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/categories?recursive=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"categories"
+							],
+							"query": [
+								{
+									"key": "recursive",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Get complete category hierarchy recursively"
+					},
+					"response": []
+				}
+			],
+			"description": "Category hierarchy and navigation endpoints"
+		},
+		{
+			"name": "Cart",
+			"item": [
+				{
+					"name": "Get Cart",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    ",
+									"    if (response.data && response.data.items && response.data.items.length > 0) {",
+									"        pm.environment.set('cartItemId', response.data.items[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/cart",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"cart"
+							]
+						},
+						"description": "Get current user's cart or session cart"
+					},
+					"response": []
+				},
+				{
+					"name": "Add Item to Cart",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    ",
+									"    if (response.data && response.data.items && response.data.items.length > 0) {",
+									"        const newItem = response.data.items[response.data.items.length - 1];",
+									"        pm.environment.set('cartItemId', newItem.id);",
+									"    }",
+									"    ",
+									"    pm.test('Item added successfully', function () {",
+									"        pm.expect(response.message).to.include('added');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"productId\": \"{{productId}}\",\n  \"variantId\": \"{{variantId}}\",\n  \"quantity\": 2,\n  \"customizationId\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/cart/items",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"cart",
+								"items"
+							]
+						},
+						"description": "Add item to cart"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Cart Item",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"quantity\": 3\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/cart/items/{{cartItemId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"cart",
+								"items",
+								"{{cartItemId}}"
+							]
+						},
+						"description": "Update cart item quantity"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Cart Item",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/cart/items/{{cartItemId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"cart",
+								"items",
+								"{{cartItemId}}"
+							]
+						},
+						"description": "Remove item from cart"
+					},
+					"response": []
+				},
+				{
+					"name": "Clear Cart",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/cart",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"cart"
+							]
+						},
+						"description": "Clear all items from cart"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Cart Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/cart/summary",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"cart",
+								"summary"
+							]
+						},
+						"description": "Get cart summary with totals"
+					},
+					"response": []
+				},
+				{
+					"name": "Merge Guest Cart",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/cart/merge",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"cart",
+								"merge"
+							]
+						},
+						"description": "Merge guest cart with user cart after login"
+					},
+					"response": []
+				}
+			],
+			"description": "Shopping cart management endpoints"
+		},
+		{
+			"name": "Customization",
+			"item": [
+				{
+					"name": "Validate Customization",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"productId\": \"{{productId}}\",\n  \"configuration\": {\n    \"layers\": [\n      {\n        \"type\": \"design\",\n        \"designId\": \"design-123\",\n        \"position\": { \"x\": 100, \"y\": 100 },\n        \"size\": { \"width\": 200, \"height\": 200 },\n        \"rotation\": 0\n      }\n    ]\n  }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/customization/validate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customization",
+								"validate"
+							]
+						},
+						"description": "Validate customization configuration"
+					},
+					"response": []
+				},
+				{
+					"name": "Save Customization",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    ",
+									"    if (response.data && response.data.customizationId) {",
+									"        pm.environment.set('customizationId', response.data.customizationId);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"productId\": \"{{productId}}\",\n  \"configuration\": {\n    \"layers\": [\n      {\n        \"type\": \"design\",\n        \"designId\": \"design-123\",\n        \"position\": { \"x\": 100, \"y\": 100 },\n        \"size\": { \"width\": 200, \"height\": 200 },\n        \"rotation\": 0\n      },\n      {\n        \"type\": \"text\",\n        \"text\": \"Custom Text\",\n        \"font\": \"Arial\",\n        \"fontSize\": 24,\n        \"color\": \"#000000\",\n        \"position\": { \"x\": 150, \"y\": 300 }\n      }\n    ]\n  },\n  \"previewImageUrl\": \"https://cdn.example.com/preview-1200x1200.png\",\n  \"thumbnailUrl\": \"https://cdn.example.com/thumb-300x300.png\",\n  \"name\": \"My Custom Design\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/customization/save",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customization",
+								"save"
+							]
+						},
+						"description": "Save or update customization"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customization by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/customization/{{customizationId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customization",
+								"{{customizationId}}"
+							]
+						},
+						"description": "Get specific customization details"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product Customizations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/customization/product/{{productId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customization",
+								"product",
+								"{{productId}}"
+							]
+						},
+						"description": "Get all customizations for a product by current user"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Latest Customization",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/customization/product/{{productId}}/latest",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customization",
+								"product",
+								"{{productId}}",
+								"latest"
+							]
+						},
+						"description": "Get most recent customization for a product"
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Designs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/customization/my-designs?page=0&size=12",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customization",
+								"my-designs"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "12"
+								}
+							]
+						},
+						"description": "Get all user's saved designs (paginated)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Guest Customizations",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/customization/guest/product/{{productId}}?sessionId={{sessionId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customization",
+								"guest",
+								"product",
+								"{{productId}}"
+							],
+							"query": [
+								{
+									"key": "sessionId",
+									"value": "{{sessionId}}"
+								}
+							]
+						},
+						"description": "Get guest customizations by session ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Customization",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/customization/{{customizationId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customization",
+								"{{customizationId}}"
+							]
+						},
+						"description": "Delete a customization"
+					},
+					"response": []
+				}
+			],
+			"description": "Product customization and design management endpoints"
+		},
+		{
+			"name": "Designs",
+			"item": [
+				{
+					"name": "Get All Designs",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    ",
+									"    if (response.data && response.data.content && response.data.content.length > 0) {",
+									"        pm.environment.set('designId', response.data.content[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/designs?page=0&size=20&sortBy=createdAt&sortDirection=DESC",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"designs"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								},
+								{
+									"key": "sortBy",
+									"value": "createdAt"
+								},
+								{
+									"key": "sortDirection",
+									"value": "DESC"
+								}
+							]
+						},
+						"description": "Get paginated list of all designs"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Design by ID",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/designs/{{designId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"designs",
+								"{{designId}}"
+							]
+						},
+						"description": "Get design details by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Search Designs",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/designs/search?q=abstract&page=0&size=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"designs",
+								"search"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "abstract"
+								},
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Search designs by query"
+					},
+					"response": []
+				},
+				{
+					"name": "Filter Designs",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categories\": [\"animals\", \"nature\"],\n  \"tags\": [\"minimalist\"],\n  \"colors\": [\"#000000\", \"#FFFFFF\"],\n  \"minPrice\": 0,\n  \"maxPrice\": 100,\n  \"page\": 0,\n  \"size\": 20,\n  \"sortBy\": \"popularity\",\n  \"sortDirection\": \"DESC\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/designs/filter",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"designs",
+								"filter"
+							]
+						},
+						"description": "Filter designs with complex criteria"
+					},
+					"response": []
+				}
+			],
+			"description": "Design library browsing and filtering endpoints"
+		},
+		{
+			"name": "Design Categories",
+			"item": [
+				{
+					"name": "Get All Design Categories",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    ",
+									"    if (response.data && response.data.length > 0) {",
+									"        pm.environment.set('designCategorySlug', response.data[0].slug);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/design-categories",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"design-categories"
+							]
+						},
+						"description": "Get list of all design categories"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Designs by Category",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/design-categories/{{designCategorySlug}}/designs?page=0&size=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"design-categories",
+								"{{designCategorySlug}}",
+								"designs"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Get designs filtered by category slug"
+					},
+					"response": []
+				}
+			],
+			"description": "Design category browsing endpoints"
+		},
+		{
+			"name": "Search",
+			"item": [
+				{
+					"name": "Search Products",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/search?query=cotton shirt&page=0&size=20&sort=createdAt&direction=DESC",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"search"
+							],
+							"query": [
+								{
+									"key": "query",
+									"value": "cotton shirt"
+								},
+								{
+									"key": "category",
+									"value": "men-tshirts",
+									"disabled": true
+								},
+								{
+									"key": "brand",
+									"value": "nike",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								},
+								{
+									"key": "sort",
+									"value": "createdAt"
+								},
+								{
+									"key": "direction",
+									"value": "DESC"
+								}
+							]
+						},
+						"description": "Search products by query with optional filters"
+					},
+					"response": []
+				}
+			],
+			"description": "Product search endpoint"
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		}
+	]
+}

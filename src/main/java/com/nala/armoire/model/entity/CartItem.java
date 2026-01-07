@@ -1,5 +1,9 @@
 package com.nala.armoire.model.entity;
 
+import com.nala.armoire.model.entity.Cart;
+import com.nala.armoire.model.entity.Customization;
+import com.nala.armoire.model.entity.Product;
+import com.nala.armoire.model.entity.ProductVariant;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -45,14 +49,16 @@ public class CartItem {
     private Integer quantity = 1;
 
     @Column(name = "unit_price", precision = 10, scale = 2, nullable = false)
-    private BigDecimal unitPrice;
+    @Builder.Default  // *** ADD THIS ***
+    private BigDecimal unitPrice = BigDecimal.ZERO;
 
     @Column(name = "customization_price", precision = 10, scale = 2)
     @Builder.Default
     private BigDecimal customizationPrice = BigDecimal.ZERO;
 
     @Column(name = "item_total", precision = 10, scale = 2)
-    private BigDecimal itemTotal;
+    @Builder.Default
+    private BigDecimal itemTotal = BigDecimal.ZERO;
 
     @Column(name = "customization_summary", columnDefinition = "TEXT")
     private String customizationSummary;
@@ -70,7 +76,8 @@ public class CartItem {
     public void calculateItemTotal() {
         BigDecimal basePrice = unitPrice != null ? unitPrice : BigDecimal.ZERO;
         BigDecimal customPrice = customizationPrice != null ? customizationPrice : BigDecimal.ZERO;
+        int qty = quantity != null ? quantity : 1;  // Also handle null quantity
         BigDecimal totalPrice = basePrice.add(customPrice);
-        this.itemTotal = totalPrice.multiply(BigDecimal.valueOf(quantity));
+        this.itemTotal = totalPrice.multiply(BigDecimal.valueOf(qty));
     }
 }

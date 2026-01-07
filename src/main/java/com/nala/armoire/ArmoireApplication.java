@@ -10,5 +10,4 @@ public class ArmoireApplication {
 
         SpringApplication.run(ArmoireApplication.class, args);
 	}
-
 }

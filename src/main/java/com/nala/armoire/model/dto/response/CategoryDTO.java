@@ -1,5 +1,6 @@
 package com.nala.armoire.model.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,8 +14,8 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL) // This excludes null fields from JSON
 public class CategoryDTO {
-
     private UUID id;
     private String name;
     private String slug;
@@ -27,5 +28,4 @@ public class CategoryDTO {
     private Boolean isActive;
     private LocalDateTime createdAt;
     private Long productCount;
-
 }

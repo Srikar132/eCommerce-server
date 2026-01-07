@@ -2,18 +2,11 @@ package com.nala.armoire.service;
 
 import com.nala.armoire.exception.ResourceNotFoundException;
 import com.nala.armoire.model.dto.response.CategoryDTO;
-import com.nala.armoire.model.dto.response.ProductDTO;
 import com.nala.armoire.model.entity.Category;
-import com.nala.armoire.model.entity.Product;
 import com.nala.armoire.repository.CategoryRepository;
-import com.nala.armoire.repository.ProductImageRepository;
-import com.nala.armoire.repository.ProductRepository;
-import com.nala.armoire.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,193 +19,161 @@ import java.util.stream.Collectors;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
-    private final ProductRepository productRepository;
-    private final ReviewRepository reviewRepository;
 
-    //Get all categories in flat list
+    /**
+     * Unified method to get categories with flexible filtering
+     */
     @Transactional(readOnly = true)
-    @Cacheable(value = "categories", key = "'all_' + #includeInactive")
-    public List<CategoryDTO> getAllCategories(Boolean includeInactive) {
+    @Cacheable(value = "categories", key = "T(java.util.Objects).hash(#slug, #includeChildren, #recursive, #minimal, #includeInactive, #includeProductCount)")
+    public List<CategoryDTO> getCategories(
+            String slug,
+            Boolean includeChildren,
+            Boolean recursive,
+            Boolean minimal,
+            Boolean includeInactive,
+            Boolean includeProductCount
+    ) {
         List<Category> categories;
+        Category parentCategory = null;
 
-        if(includeInactive) {
-            categories = categoryRepository.findAllWithParent();
+        if (slug != null && !slug.isBlank()) {
+            // Get specific category and its children
+            parentCategory = categoryRepository.findBySlugAndIsActiveTrue(slug)
+                    .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + slug));
+
+            categories = includeInactive
+                    ? categoryRepository.findByParentIdOrderByDisplayOrderAsc(parentCategory.getId())
+                    : categoryRepository.findByParentIdAndIsActiveTrueOrderByDisplayOrderAsc(parentCategory.getId());
         } else {
-            categories = categoryRepository.findAllActiveWithParent();
+            // Get root categories
+            categories = includeInactive
+                    ? categoryRepository.findByParentIsNullOrderByDisplayOrderAsc()
+                    : categoryRepository.findByParentIsNullAndIsActiveTrueOrderByDisplayOrderAsc();
         }
 
-        return categories.stream()
-                .map(this::mapToCategoryDTO)
-                .collect(Collectors.toList());
-    }
+        // Store parent for path building
+        final Category parent = parentCategory;
 
-    //Get Category hierarchy -> (tree structure)
-
-    @Transactional(readOnly = true)
-    @Cacheable(value = "categoryHierarchy", key = "#includeInactive")
-    public List<CategoryDTO> getCategoryHierarchy(Boolean includeInactive) {
-        List<Category> allCategories = includeInactive
-                ? categoryRepository.findAllByOrderByDisplayOrderAsc()
-                : categoryRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
-
-        Map<UUID, CategoryDTO> categoryMap = new HashMap<>();
-        List<CategoryDTO> rootCategories = new ArrayList<>();
-
-        // First pass: create DTOs
-        for (Category category : allCategories) {
-            CategoryDTO dto = mapToCategoryDTO(category);
-            dto.setSubCategories(new ArrayList<>());
-            categoryMap.put(category.getId(), dto);
+        // Map to DTOs based on requirements
+        if (recursive) {
+            return categories.stream()
+                    .map(cat -> mapRecursive(cat, minimal, includeProductCount, includeInactive))
+                    .collect(Collectors.toList());
+        } else if (includeChildren) {
+            return categories.stream()
+                    .map(cat -> mapWithChildren(cat, minimal, includeProductCount, includeInactive))
+                    .collect(Collectors.toList());
+        } else {
+            return categories.stream()
+                    .map(cat -> {
+                        CategoryDTO dto = mapToDTO(cat, minimal, includeProductCount);
+                        // If querying by slug, the parent category itself should also be included with path
+                        if (parent != null && cat.getId().equals(parent.getId())) {
+                            dto.setFullPath(buildPath(cat));
+                        }
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
         }
-
-        // Second pass: build hierarchy
-        for (Category category : allCategories) {
-            CategoryDTO dto = categoryMap.get(category.getId());
-
-            if (category.getParent() == null) {
-                rootCategories.add(dto);
-            } else {
-                CategoryDTO parent = categoryMap.get(category.getParent().getId());
-                if (parent != null) {
-                    parent.getSubCategories().add(dto);
-                }
-            }
-        }
-
-        return rootCategories;
     }
 
-    // Get root categories only (Men, Women, Kids)
+    /**
+     * Get single category by slug with flexible options
+     */
     @Transactional(readOnly = true)
-    @Cacheable(value = "rootCategories", key = "#includeInactive")
-    public List<CategoryDTO> getRootCategories(Boolean includeInactive) {
-        List<Category> categories = includeInactive
-                ? categoryRepository.findByParentIsNullOrderByDisplayOrderAsc()
-                : categoryRepository.findByParentIsNullAndIsActiveTrueOrderByDisplayOrderAsc();
-
-        return categories.stream()
-                .map(this::mapToCategoryDTO)
-                .collect(Collectors.toList());
-    }
-
-    // Get a single category by slug with its subcategories
-    // used for category landing pages
-    @Transactional(readOnly = true)
-    @Cacheable(value = "categoryBySlug", key = "#slug")
-    public CategoryDTO getCategoryBySlug(String slug) {
+    @Cacheable(value = "categoryBySlug", key = "T(java.util.Objects).hash(#slug, #includeChildren, #includeProductCount, #includePath)")
+    public CategoryDTO getCategoryBySlug(
+            String slug,
+            Boolean includeChildren,
+            Boolean includeProductCount,
+            Boolean includePath
+    ) {
         Category category = categoryRepository.findBySlugAndIsActiveTrue(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
-        CategoryDTO dto = mapToCategoryDTOWithCount(category);
+        CategoryDTO dto = mapToDTO(category, false, includeProductCount);
 
-        List<Category> subCategories = categoryRepository
-                .findByParentIdAndIsActiveTrueOrderByDisplayOrderAsc(category.getId());
+        if (includeChildren) {
+            List<Category> subCategories = categoryRepository
+                    .findByParentIdAndIsActiveTrueOrderByDisplayOrderAsc(category.getId());
 
-        List<CategoryDTO> subCategoryDTOs = subCategories.stream()
-                .map(this::mapToCategoryDTOWithCount)
-                .collect(Collectors.toList());
-
-        dto.setSubCategories(subCategoryDTOs);
-        dto.setFullPath(buildCategoryPath(category));
-
-        return dto;
-    }
-
-    /**
-     * Get subcategories of a parent category
-     */
-    @Transactional(readOnly = true)
-    @Cacheable(value = "subcategories", key = "#parentId + '_' + #includeInactive")
-    public List<CategoryDTO> getSubcategories(UUID parentId, Boolean includeInactive) {
-        categoryRepository.findById(parentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Parent category not found"));
-
-        List<Category> categories = includeInactive
-                ? categoryRepository.findByParentIdOrderByDisplayOrderAsc(parentId)
-                : categoryRepository.findByParentIdAndIsActiveTrueOrderByDisplayOrderAsc(parentId);
-
-        return categories.stream()
-                .map(this::mapToCategoryDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public Page<ProductDTO> getProductsByCategory(String categorySlug, Pageable pageable) {
-        Category category = categoryRepository.findBySlugAndIsActiveTrue(categorySlug)
-                .orElseThrow(() -> new ResourceNotFoundException("Category Not found"));
-
-        Page<Product> products = productRepository.findByCategoryIdAndIsActiveTrue(category.getId(), pageable);
-
-        return products.map(product -> {
-            Double averageRating = reviewRepository.findAverageRatingByProductId(product.getId());
-
-            Long reviewCount = reviewRepository.countByProductId(product.getId());
-
-            return ProductDTO.builder()
-                    .id(product.getId())
-                    .name(product.getName())
-                    .slug(product.getSlug())
-                    .description(product.getDescription())
-                    .basePrice(product.getBasePrice())
-                    .sku(product.getSku())
-                    .isCustomizable(product.getIsCustomizable())
-                    .material(product.getMaterial())
-                    .categoryId(product.getCategory().getId())
-                    .categoryName(product.getCategory().getName())
-                    .brandId(product.getBrand() != null ? product.getBrand().getId() : null)
-                    .brandName(product.getBrand() != null ? product.getBrand().getName() : null)
-                    .averageRating(averageRating)
-                    .reviewCount(reviewCount)
-                    .isActive(product.getIsActive())
-                    .createdAt(product.getCreatedAt())
-                    .build();
-        });
-    }
-
-
-    /**
-     * Get category with ALL descendants (recursive)
-     * Used for expandable trees, showing entire category branch
-     */
-    @Transactional(readOnly = true)
-    public CategoryDTO getCategoryWithAllDescendants(String slug) {
-        Category category = categoryRepository.findBySlugAndIsActiveTrue(slug)
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + slug));
-
-        return mapToCategoryDTORecursive(category);
-    }
-
-    private CategoryDTO mapToCategoryDTORecursive(Category category) {
-        CategoryDTO dto = mapToCategoryDTOWithCount(category);
-
-        List<Category> children = categoryRepository
-                .findByParentIdAndIsActiveTrueOrderByDisplayOrderAsc(category.getId());
-
-        List<CategoryDTO> childDTOs = children.stream()
-                .map(this::mapToCategoryDTORecursive)
-                .collect(Collectors.toList());
-
-        dto.setSubCategories(childDTOs);
-        return dto;
-    }
-
-    /**
-     * Build full category path string
-     */
-    private String buildCategoryPath(Category category) {
-        List<String> pathParts = new ArrayList<>();
-        Category current = category;
-
-        while (current != null) {
-            pathParts.add(0, current.getName());
-            current = current.getParent();
+            dto.setSubCategories(subCategories.stream()
+                    .map(cat -> mapToDTO(cat, false, includeProductCount))
+                    .collect(Collectors.toList()));
         }
 
-        return String.join(" / ", pathParts);
+        if (includePath) {
+            dto.setFullPath(buildPath(category));
+        }
+
+        return dto;
     }
 
-    private CategoryDTO mapToCategoryDTO(Category category) {
-        return CategoryDTO.builder()
+    /**
+     * Map category with direct children only
+     */
+    private CategoryDTO mapWithChildren(
+            Category category,
+            Boolean minimal,
+            Boolean includeProductCount,
+            Boolean includeInactive
+    ) {
+        CategoryDTO dto = mapToDTO(category, minimal, includeProductCount);
+
+        List<Category> children = includeInactive
+                ? categoryRepository.findByParentIdOrderByDisplayOrderAsc(category.getId())
+                : categoryRepository.findByParentIdAndIsActiveTrueOrderByDisplayOrderAsc(category.getId());
+
+        dto.setSubCategories(children.stream()
+                .map(cat -> mapToDTO(cat, minimal, includeProductCount))
+                .collect(Collectors.toList()));
+
+        return dto;
+    }
+
+    /**
+     * Map category recursively with all descendants
+     */
+    private CategoryDTO mapRecursive(
+            Category category,
+            Boolean minimal,
+            Boolean includeProductCount,
+            Boolean includeInactive
+    ) {
+        CategoryDTO dto = mapToDTO(category, minimal, includeProductCount);
+
+        List<Category> children = includeInactive
+                ? categoryRepository.findByParentIdOrderByDisplayOrderAsc(category.getId())
+                : categoryRepository.findByParentIdAndIsActiveTrueOrderByDisplayOrderAsc(category.getId());
+
+        if (!children.isEmpty()) {
+            dto.setSubCategories(children.stream()
+                    .map(cat -> mapRecursive(cat, minimal, includeProductCount, includeInactive))
+                    .collect(Collectors.toList()));
+        }
+
+        return dto;
+    }
+
+    /**
+     * Base mapping with conditional fields
+     */
+    private CategoryDTO mapToDTO(
+            Category category,
+            Boolean minimal,
+            Boolean includeProductCount
+    ) {
+        // Minimal response: only id, name, slug
+        if (minimal) {
+            return CategoryDTO.builder()
+                    .id(category.getId())
+                    .name(category.getName())
+                    .slug(category.getSlug())
+                    .build();
+        }
+
+        // Full response
+        CategoryDTO.CategoryDTOBuilder builder = CategoryDTO.builder()
                 .id(category.getId())
                 .name(category.getName())
                 .slug(category.getSlug())
@@ -221,19 +182,28 @@ public class CategoryService {
                 .parentId(category.getParent() != null ? category.getParent().getId() : null)
                 .displayOrder(category.getDisplayOrder())
                 .isActive(category.getIsActive())
-                .createdAt(category.getCreatedAt())
-                .build();
+                .createdAt(category.getCreatedAt());
+
+        // Add product count if requested
+        if (includeProductCount) {
+            builder.productCount(categoryRepository.countProductsByCategoryId(category.getId()));
+        }
+
+        return builder.build();
     }
 
     /**
-     * Map Category entity to DTO with product count
+     * Build full category path
      */
-    private CategoryDTO mapToCategoryDTOWithCount(Category category) {
-        Long productCount = categoryRepository.countProductsByCategoryId(category.getId());
+    private String buildPath(Category category) {
+        List<String> parts = new ArrayList<>();
+        Category current = category;
 
-        CategoryDTO dto = mapToCategoryDTO(category);
-        dto.setProductCount(productCount);
+        while (current != null) {
+            parts.add(0, current.getName());
+            current = current.getParent();
+        }
 
-        return dto;
+        return String.join(" / ", parts);
     }
 }

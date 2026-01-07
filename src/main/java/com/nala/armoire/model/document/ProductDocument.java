@@ -28,7 +28,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 public class ProductDocument {
 
     @Id
-    private String id;  // UUID as String for ES
+    private String id;
 
     @Field(type = FieldType.Text, analyzer = "standard")
     private String name;
@@ -54,7 +54,12 @@ public class ProductDocument {
     @Field(type = FieldType.Text)
     private String careInstructions;
 
-    // Category fields (denormalized for fast filtering)
+    // ==================== ENHANCED CATEGORY STRUCTURE ====================
+
+    /**
+     * Direct category (leaf node) - e.g., "men-tshirts"
+     * Used for exact filtering
+     */
     @Field(type = FieldType.Keyword)
     private String categorySlug;
 
@@ -64,7 +69,36 @@ public class ProductDocument {
     @Field(type = FieldType.Keyword)
     private String categoryId;
 
-    // Brand fields (denormalized)
+    /**
+     * Parent category (if exists) - e.g., "men-topwear"
+     * Used for broader filtering
+     */
+    @Field(type = FieldType.Keyword)
+    private String parentCategorySlug;
+
+    @Field(type = FieldType.Text)
+    private String parentCategoryName;
+
+    @Field(type = FieldType.Keyword)
+    private String parentCategoryId;
+
+    /**
+     * Full category path for breadcrumb navigation
+     * e.g., ["men", "men-topwear", "men-tshirts"]
+     */
+    @Field(type = FieldType.Keyword)
+    private List<String> categoryPath;
+
+    /**
+     * All applicable category slugs (leaf + all ancestors)
+     * Used for hierarchical filtering
+     * e.g., ["men-tshirts", "men-topwear"]
+     */
+    @Field(type = FieldType.Keyword)
+    private List<String> allCategorySlugs;
+
+    // ==================== BRAND FIELDS ====================
+
     @Field(type = FieldType.Keyword)
     private String brandSlug;
 
@@ -74,26 +108,27 @@ public class ProductDocument {
     @Field(type = FieldType.Keyword)
     private String brandId;
 
-    // Variant data (nested for filtering)
+    // ==================== VARIANT DATA ====================
+
     @Field(type = FieldType.Nested)
     private List<VariantInfo> variants;
 
-    // Available sizes (flattened for easy filtering)
     @Field(type = FieldType.Keyword)
     private List<String> availableSizes;
 
-    // Available colors (flattened for easy filtering)
     @Field(type = FieldType.Keyword)
     private List<String> availableColors;
 
-    // Images
+    // ==================== IMAGES ====================
+
     @Field(type = FieldType.Nested)
     private List<ImageInfo> images;
 
     @Field(type = FieldType.Keyword)
     private String primaryImageUrl;
 
-    // Review data
+    // ==================== REVIEWS ====================
+
     @Field(type = FieldType.Double)
     private Double averageRating;
 
@@ -105,17 +140,18 @@ public class ProductDocument {
 
     @Field(type = FieldType.Date)
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
-    @JsonSerialize(using = LocalDateTimeSerializer.class) // Standard writer
-    @JsonDeserialize(using = CustomEsDateDeserializer.class) // YOUR CUSTOM READER
+    @JsonSerialize(using = LocalDateTimeSerializer.class)
+    @JsonDeserialize(using = CustomEsDateDeserializer.class)
     private LocalDateTime createdAt;
 
     @Field(type = FieldType.Date)
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
-    @JsonSerialize(using = LocalDateTimeSerializer.class) // Standard writer
-    @JsonDeserialize(using = CustomEsDateDeserializer.class) // YOUR CUSTOM READER
+    @JsonSerialize(using = LocalDateTimeSerializer.class)
+    @JsonDeserialize(using = CustomEsDateDeserializer.class)
     private LocalDateTime updatedAt;
 
-    // Nested classes for complex fields
+    // ==================== NESTED CLASSES ====================
+
     @Data
     @Builder
     @NoArgsConstructor
