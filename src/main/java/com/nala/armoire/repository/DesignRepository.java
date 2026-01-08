@@ -40,6 +40,11 @@ public interface DesignRepository extends JpaRepository<Design, UUID> {
             "(d.allowedProductTypes IS NULL OR d.allowedProductTypes LIKE CONCAT('%', :productType, '%'))")
     Page<Design> findCompatibleDesigns(@Param("productType") String productType, Pageable pageable);
 
+    //find compatible designs by product slug
+    @Query("SELECT d FROM Design d, Product p WHERE p.slug = :productSlug AND d.isActive = true AND " +
+            "(d.allowedProductTypes IS NULL OR d.allowedProductTypes LIKE CONCAT('%', p.category.slug, '%'))")
+    Page<Design> findCompatibleDesignsByProductSlug(@Param("productSlug") String productSlug, Pageable pageable);
+
     @Query("SELECT d FROM Design d WHERE d.isActive = true " +
             "AND (:categoryId IS NULL OR d.category.id = :categoryId) " +
             "AND (:searchTerm IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +

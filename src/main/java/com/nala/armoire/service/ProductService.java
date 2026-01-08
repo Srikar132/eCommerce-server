@@ -163,12 +163,12 @@ public class ProductService {
 
     //get product through variants(size, color)
     @Transactional(readOnly = true)
-    public List<ProductVariantDTO> getProductVariants(UUID productId) {
+    public List<ProductVariantDTO> getProductVariants(String slug) {
 
-        Product product = productRepository.findById(productId)
+        Product product = productRepository.findBySlugAndIsActiveTrue(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product Not found"));
 
-        List<ProductVariant> variants = productVariantRepository.findByProductIdAndIsActiveTrue(productId);
+        List<ProductVariant> variants = productVariantRepository.findByProductIdAndIsActiveTrue(product.getId());
 
         return variants.stream()
                 .map(this::mapToProductVariantDTO)
@@ -176,31 +176,31 @@ public class ProductService {
     }
 
     //get product reviews
-    public Page<ReviewDTO> getProductReviews(UUID productId, Pageable pageable) {
+    public Page<ReviewDTO> getProductReviews(String slug, Pageable pageable) {
 
-        Product product = productRepository.findById(productId)
+        Product product = productRepository.findBySlugAndIsActiveTrue(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
-        Page<Review> reviews = reviewRepository.findByProductId(productId, pageable);
+        Page<Review> reviews = reviewRepository.findByProductId(product.getId(), pageable);
 
         return reviews.map(this::mapToReviewDTO);
     }
 
     @Transactional
-    public ReviewDTO addProductReview(UUID productId, UUID userId, AddReviewRequest request) {
-        Product product = productRepository.findById(productId)
+    public ReviewDTO addProductReview(String slug, UUID userId, AddReviewRequest request) {
+        Product product = productRepository.findBySlugAndIsActiveTrue(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         // Check if user already reviewed this product
-        if (reviewRepository.existsByUserIdAndProductId(userId, productId)) {
+        if (reviewRepository.existsByUserIdAndProductId(userId, product.getId())) {
             throw new BadRequestException("You have already reviewed this product");
         }
 
         // Check if user has purchased this product (for verified purchase)
-        boolean hasPurchased = orderItemRepository.existsByUserIdAndProductId(userId, productId);
+        boolean hasPurchased = orderItemRepository.existsByUserIdAndProductId(userId, product.getId());
 
         Review review = Review.builder()
                 .user(user)
@@ -212,7 +212,7 @@ public class ProductService {
                 .build();
 
         Review savedReview = reviewRepository.save(review);
-        log.info("Review added for productId: {} by userId: {}", productId, userId);
+        log.info("Review added for product slug: {} by userId: {}", slug, userId);
 
         return mapToReviewDTO(savedReview);
     }

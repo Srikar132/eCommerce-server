@@ -120,11 +120,11 @@ public class DesignService {
     }
 
     @Transactional(readOnly = true)
-    public Page<DesignListDTO> getCompatibleDesigns(Long productId, String productType, Integer page, Integer size) {
-        log.info("Fetching compatible designs for product type: {}", productType);
+    public Page<DesignListDTO> getCompatibleDesigns(String productSlug, Integer page, Integer size) {
+        log.info("Fetching compatible designs for product slug: {}", productSlug);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Design> designs = designRepository.findCompatibleDesigns(productType, pageable);
+        Page<Design> designs = designRepository.findCompatibleDesignsByProductSlug(productSlug, pageable);
 
         return designs.map(this::convertToDesignListDto);
     }

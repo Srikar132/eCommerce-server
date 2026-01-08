@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -107,29 +106,29 @@ public class ProductController {
     }
 
     /**
-     * GET /api/v1/products/{id}/variants - Get Product Variants
+     * GET /api/v1/products/{slug}/variants - Get Product Variants
      */
-    @GetMapping("/{id}/variants")
-    public ResponseEntity<List<ProductVariantDTO>> getProductVariants(@PathVariable UUID id) {
-        log.info("GET /api/v1/products/{}/variants", id);
+    @GetMapping("/{slug}/variants")
+    public ResponseEntity<List<ProductVariantDTO>> getProductVariants(@PathVariable String slug) {
+        log.info("GET /api/v1/products/{}/variants", slug);
 
-        List<ProductVariantDTO> variants = productService.getProductVariants(id);
+        List<ProductVariantDTO> variants = productService.getProductVariants(slug);
 
         return ResponseEntity.ok(variants);
     }
 
     /**
-     * GET /api/v1/products/{id}/reviews - Get Product Reviews
+     * GET /api/v1/products/{slug}/reviews - Get Product Reviews
      */
-    @GetMapping("/{id}/reviews")
+    @GetMapping("/{slug}/reviews")
     public ResponseEntity<PagedResponse<ReviewDTO>> getProductReviews(
-            @PathVariable UUID id,
+            @PathVariable String slug,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
-        log.info("GET /api/v1/products/{}/reviews", id);
+        log.info("GET /api/v1/products/{}/reviews", slug);
 
-        Page<ReviewDTO> reviews = productService.getProductReviews(id, pageable);
+        Page<ReviewDTO> reviews = productService.getProductReviews(slug, pageable);
 
         PagedResponse<ReviewDTO> response = PagedResponse.<ReviewDTO>builder()
                 .content(reviews.getContent())
@@ -146,31 +145,30 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    //POST /api/v1/products/:id/reviews - Add review (Authenticated users only)
-    @PostMapping("/{id}/review")
+    //POST /api/v1/products/{slug}/reviews - Add review (Authenticated users only)
+    @PostMapping("/{slug}/reviews")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ReviewDTO> addProductReview(
-            @PathVariable UUID id,
+            @PathVariable String slug,
             @Valid @RequestBody AddReviewRequest request,
             @CurrentUser UserPrincipal currentUser
     ) {
-        ReviewDTO review = productService.addProductReview(id, currentUser.getId(), request);
+        ReviewDTO review = productService.addProductReview(slug, currentUser.getId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(review);
     }
 
 
-    //  GET /api/v1/products/{productId}/compatible-designs
-    @GetMapping("/{id}/compatible-designs")
+    //  GET /api/v1/products/{slug}/designs - Get compatible designs
+    @GetMapping("/{slug}/designs")
     public ResponseEntity<ApiResponse<PagedResponse<DesignListDTO>>> getCompatibleDesigns(
-            @PathVariable Long id,
-            @RequestParam String productType,
+            @PathVariable String slug,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
 
-        log.info("GET /api/products/{}/compatible-designs?productType={}", id, productType);
+        log.info("GET /api/v1/products/{}/designs", slug);
 
         Page<DesignListDTO> pageResult =
-                designService.getCompatibleDesigns(id, productType, page, size);
+                designService.getCompatibleDesigns(slug, page, size);
 
         PagedResponse<DesignListDTO> response =
                 PagedResponseUtil.fromPage(pageResult);
