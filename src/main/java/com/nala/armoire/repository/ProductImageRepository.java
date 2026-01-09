@@ -10,7 +10,5 @@ import java.util.UUID;
 @Repository
 public interface ProductImageRepository extends JpaRepository<ProductImage, UUID> {
 
-    List<ProductImage> findByProductIdOrderByDisplayOrderAsc(UUID productId);
-
-    void deleteByProductId(UUID productId);
+    List<ProductImage> findByVariantIdOrderByDisplayOrderAsc(UUID variantId);
 }

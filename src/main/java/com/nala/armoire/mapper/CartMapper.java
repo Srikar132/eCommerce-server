@@ -48,9 +48,9 @@ public class CartMapper {
         if(product == null) return null;
 
         String imageUrl = null;
-        if (product.getImages() != null && !product.getImages().isEmpty()) {
-            imageUrl = product.getImages().get(0).getImageUrl();
-        }
+        // if (product.getImages() != null && !product.getImages().isEmpty()) {
+        //     imageUrl = product.getImages().get(0).getImageUrl();
+        // }
 
         return ProductSummary.builder()
                 .id(product.getId())

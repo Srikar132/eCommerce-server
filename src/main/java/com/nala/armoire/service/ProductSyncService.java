@@ -93,21 +93,37 @@ public class ProductSyncService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        // Convert variants
+        // CHANGED: Convert variants WITH their images
         List<ProductDocument.VariantInfo> variantInfos = product.getVariants().stream()
-                .map(v -> ProductDocument.VariantInfo.builder()
-                        .id(v.getId().toString())
-                        .size(v.getSize())
-                        .color(v.getColor())
-                        .colorHex(v.getColorHex())
-                        .stockQuantity(v.getStockQuantity())
-                        .additionalPrice(v.getAdditionalPrice())
-                        .isActive(v.getIsActive())
-                        .build())
+                .map(v -> {
+                    // Convert variant images
+                    List<ProductDocument.ImageInfo> variantImages = v.getImages().stream()
+                            .map(img -> ProductDocument.ImageInfo.builder()
+                                    .id(img.getId().toString())
+                                    .imageUrl(img.getImageUrl())
+                                    .altText(img.getAltText())
+                                    .displayOrder(img.getDisplayOrder())
+                                    .isPrimary(img.getIsPrimary())
+                                    .build())
+                            .collect(Collectors.toList());
+
+                    return ProductDocument.VariantInfo.builder()
+                            .id(v.getId().toString())
+                            .size(v.getSize())
+                            .color(v.getColor())
+                            .colorHex(v.getColorHex())
+                            .stockQuantity(v.getStockQuantity())
+                            .additionalPrice(v.getAdditionalPrice())
+                            .isActive(v.getIsActive())
+                            .images(variantImages) // NEW: Include images in variant
+                            .build();
+                })
                 .collect(Collectors.toList());
 
-        // Convert images
-        List<ProductDocument.ImageInfo> imageInfos = product.getImages().stream()
+        // CHANGED: Collect all images from ALL variants (for product-level image list)
+        // This maintains backward compatibility if you need a flat list of all images
+        List<ProductDocument.ImageInfo> allImages = product.getVariants().stream()
+                .flatMap(variant -> variant.getImages().stream())
                 .map(img -> ProductDocument.ImageInfo.builder()
                         .id(img.getId().toString())
                         .imageUrl(img.getImageUrl())
@@ -117,8 +133,9 @@ public class ProductSyncService {
                         .build())
                 .collect(Collectors.toList());
 
-        // Get primary image
-        String primaryImageUrl = product.getImages().stream()
+        // CHANGED: Get primary image from first variant with a primary image
+        String primaryImageUrl = product.getVariants().stream()
+                .flatMap(variant -> variant.getImages().stream())
                 .filter(ProductImage::getIsPrimary)
                 .findFirst()
                 .map(ProductImage::getImageUrl)
@@ -140,7 +157,7 @@ public class ProductSyncService {
 
         if (product.getCategory() != null) {
             Category currentCategory = product.getCategory();
-            
+
             // Add leaf category (product's direct category)
             allCategorySlugs.add(currentCategory.getSlug());
             categoryPath.add(currentCategory.getSlug());
@@ -193,10 +210,10 @@ public class ProductSyncService {
                 .brandName(product.getBrand() != null ? product.getBrand().getName() : null)
                 .brandId(product.getBrand() != null ? product.getBrand().getId().toString() : null)
                 // Variants & Images
-                .variants(variantInfos)
+                .variants(variantInfos) // NOW includes images per variant
                 .availableSizes(availableSizes)
                 .availableColors(availableColors)
-                .images(imageInfos)
+                .images(allImages) // Flat list of all images (optional, for backward compatibility)
                 .primaryImageUrl(primaryImageUrl)
                 // Reviews
                 .averageRating(averageRating)

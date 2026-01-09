@@ -2,11 +2,14 @@ package com.nala.armoire.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.GenericGenerator;
+
 import java.util.UUID;
 
 @Entity
-@Table(name = "product_images")
+@Table(name = "product_images", indexes = {
+        @Index(name = "idx_variant_id", columnList = "variant_id"),
+        @Index(name = "idx_variant_primary", columnList = "variant_id, is_primary")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -17,19 +20,30 @@ public class ProductImage {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    // CHANGED: Now references ProductVariant instead of Product
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "variant_id", nullable = false)
+    private ProductVariant variant;
 
-    @Column(name = "image_url", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "image_url", nullable = false, length = 500)
     private String imageUrl;
 
     @Column(name = "alt_text", length = 255)
     private String altText;
 
     @Column(name = "display_order")
+    @Builder.Default
     private Integer displayOrder = 0;
 
     @Column(name = "is_primary")
+    @Builder.Default
     private Boolean isPrimary = false;
+
+    // Ensure alt text defaults to variant description
+    @PrePersist
+    protected void onCreate() {
+        if (altText == null && variant != null) {
+            altText = variant.getProduct().getName() + " - " + variant.getColor();
+        }
+    }
 }

@@ -177,6 +177,10 @@ public class ProductDocument {
 
         @Field(type = FieldType.Boolean)
         private Boolean isActive;
+
+        // NEW: Images belong to variant
+        @Field(type = FieldType.Nested)
+        private List<ImageInfo> images;
     }
 
     @Data

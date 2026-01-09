@@ -32,9 +32,8 @@ public class ProductService {
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final OrderItemRepository orderItemRepository;
-    private final ProductImageRepository productImageRepository;
+    // REMOVED: productImageRepository (images are now fetched via variants)
 
-    //get all products
     @Transactional(readOnly = true)
     public PagedResponse<ProductDTO> getProducts(
             List<String> categorySlugs,
@@ -50,9 +49,6 @@ public class ProductService {
     ) {
 
         Specification<Product> spec = (root, query, cb) -> cb.conjunction();
-
-//        spec = spec.and(ProductSpecification.isActive());
-
 
         if (categorySlugs != null && !categorySlugs.isEmpty()) {
             spec = spec.and(ProductSpecification.hasCategorySlugs(categorySlugs));
@@ -83,12 +79,8 @@ public class ProductService {
         }
 
         Sort sorting = parseSortParameter(sort);
-
         Pageable pageable = PageRequest.of(page - 1, limit, sorting);
-
         Page<Product> productPage = productRepository.findAll(spec, pageable);
-
-//        System.out.println(productPage);
 
         List<ProductDTO> productDTOs = productPage.getContent()
                 .stream()
@@ -96,7 +88,6 @@ public class ProductService {
                 .collect(Collectors.toList());
 
         System.out.println(productDTOs.size());
-
 
         return PagedResponse.<ProductDTO>builder()
                 .content(productDTOs)
@@ -130,7 +121,6 @@ public class ProductService {
                         : Sort.Direction.DESC;
             }
 
-            // Validate sort fields
             if (isValidSortField(property)) {
                 orders.add(new Sort.Order(direction, property));
             } else {
@@ -144,14 +134,11 @@ public class ProductService {
     }
 
     private boolean isValidSortField(String field) {
-        // Define allowed sort fields
         List<String> validFields = List.of(
                 "createdAt", "updatedAt", "name", "basePrice", "averageRating"
         );
         return validFields.contains(field);
     }
-
-    //get product through slug
 
     @Transactional(readOnly = true)
     public ProductDTO getProductBySlug(String slug) {
@@ -161,10 +148,8 @@ public class ProductService {
         return mapToProductDTO(product);
     }
 
-    //get product through variants(size, color)
     @Transactional(readOnly = true)
     public List<ProductVariantDTO> getProductVariants(String slug) {
-
         Product product = productRepository.findBySlugAndIsActiveTrue(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product Not found"));
 
@@ -175,9 +160,7 @@ public class ProductService {
                 .collect(Collectors.toList());
     }
 
-    //get product reviews
     public Page<ReviewDTO> getProductReviews(String slug, Pageable pageable) {
-
         Product product = productRepository.findBySlugAndIsActiveTrue(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
@@ -194,12 +177,10 @@ public class ProductService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Check if user already reviewed this product
         if (reviewRepository.existsByUserIdAndProductId(userId, product.getId())) {
             throw new BadRequestException("You have already reviewed this product");
         }
 
-        // Check if user has purchased this product (for verified purchase)
         boolean hasPurchased = orderItemRepository.existsByUserIdAndProductId(userId, product.getId());
 
         Review review = Review.builder()
@@ -217,11 +198,13 @@ public class ProductService {
         return mapToReviewDTO(savedReview);
     }
 
+    // ==================== MAPPING METHODS ====================
 
-    //Mapping methods
+    // CHANGED: Now collects images from all variants
     private ProductDTO mapToProductDTO(Product product) {
-        List<ProductImageDTO> images = productImageRepository.findByProductIdOrderByDisplayOrderAsc(product.getId())
-                .stream()
+        // Collect all images from all variants (flattened)
+        List<ProductImageDTO> images = product.getVariants().stream()
+                .flatMap(variant -> variant.getImages().stream())
                 .map(this::mapToProductImageDTO)
                 .collect(Collectors.toList());
 
@@ -242,13 +225,45 @@ public class ProductService {
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .brandId(product.getBrand() != null ? product.getBrand().getId() : null)
                 .brandName(product.getBrand() != null ? product.getBrand().getName() : null)
-                .images(images)
+
+                // ✅ Variants instead of images
+                .variants(
+                        product.getVariants().stream()
+                                .map(variant -> ProductVariantDTO.builder()
+                                        .id(variant.getId())
+                                        .size(variant.getSize())
+                                        .color(variant.getColor())
+                                        .colorHex(variant.getColorHex())
+                                        .stockQuantity(variant.getStockQuantity())
+                                        .additionalPrice(variant.getAdditionalPrice())
+                                        .sku(variant.getSku())
+                                        .isActive(variant.getIsActive())
+
+                                        // ✅ Images INSIDE variant
+                                        .images(
+                                                variant.getImages().stream()
+                                                        .map(image -> ProductImageDTO.builder()
+                                                                .id(image.getId())
+                                                                .imageUrl(image.getImageUrl())
+                                                                .altText(image.getAltText())
+                                                                .displayOrder(image.getDisplayOrder())
+                                                                .isPrimary(image.getIsPrimary())
+                                                                .build()
+                                                        )
+                                                        .toList()
+                                        )
+                                        .build()
+                                )
+                                .toList()
+                )
+
                 .averageRating(averageRating)
                 .reviewCount(reviewCount)
                 .isActive(product.getIsActive())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
+
     }
 
     private ProductImageDTO mapToProductImageDTO(ProductImage image) {
@@ -261,7 +276,13 @@ public class ProductService {
                 .build();
     }
 
+    // CHANGED: Now includes variant images
     private ProductVariantDTO mapToProductVariantDTO(ProductVariant variant) {
+        // Map variant images
+        List<ProductImageDTO> variantImages = variant.getImages().stream()
+                .map(this::mapToProductImageDTO)
+                .collect(Collectors.toList());
+
         return ProductVariantDTO.builder()
                 .id(variant.getId())
                 .productId(variant.getProduct().getId())
@@ -272,6 +293,7 @@ public class ProductService {
                 .additionalPrice(variant.getAdditionalPrice())
                 .sku(variant.getSku())
                 .isActive(variant.getIsActive())
+                .images(variantImages) // NEW: Include images in variant DTO
                 .build();
     }
 

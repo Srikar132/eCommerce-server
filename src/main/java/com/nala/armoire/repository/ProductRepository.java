@@ -14,7 +14,6 @@ import java.util.UUID;
 public interface ProductRepository extends JpaRepository<Product, UUID> , JpaSpecificationExecutor<Product> {
 
     Optional<Product> findBySlugAndIsActiveTrue(String slug);
-    Page<Product> findByCategoryIdAndIsActiveTrue(UUID categoryId, Pageable pageable);
 
     Page<Product> findByBrandIdAndIsActiveTrue(UUID brandId, Pageable pageable);
 

@@ -28,7 +28,7 @@ public class ProductDTO {
     private String categoryName;
     private UUID brandId;
     private String brandName;
-    private List<ProductImageDTO> images;
+    private List<ProductVariantDTO> variants;
     private Double averageRating;
     private Long reviewCount;
     private Boolean isActive;
