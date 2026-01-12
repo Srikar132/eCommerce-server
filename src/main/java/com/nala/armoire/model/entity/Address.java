@@ -27,7 +27,7 @@ public class Address {
     @Column(name = "address_type" , length = 20)
     private String addressType; // HOME , OFFICE , OTHER
 
-    @Column(name = "street_address" , length = 20)
+    @Column(name = "street_address" , length = 500)
     private String streetAddress;
 
     @Column(nullable = false , length = 100)

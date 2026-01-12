@@ -23,7 +23,6 @@ public class DesignDTO {
     private String imageUrl;
     private String thumbnailUrl;
     private List<String> tags;
-    private List<String> allowedProductTypes;
     private Boolean isActive;
     private Boolean isPremium;
     private Long downloadCount;

@@ -20,7 +20,7 @@ public interface CustomizationRepository extends JpaRepository<Customization, UU
     // Find by customization ID
     Optional<Customization> findByCustomizationId(String customizationId);
 
-    // Find user's customizations for a specific product (MOST IMPORTANT)
+    // Find user's customizations for a specific product
     @Query("SELECT c FROM Customization c WHERE c.userId = :userId AND c.productId = :productId " +
             "ORDER BY c.updatedAt DESC")
     List<Customization> findByUserIdAndProductId(
@@ -31,12 +31,12 @@ public interface CustomizationRepository extends JpaRepository<Customization, UU
     // Find user's all customizations
     Page<Customization> findByUserIdOrderByUpdatedAtDesc(UUID userId, Pageable pageable);
 
-    //Find guest's customizations by session
+    // Find guest's customizations by session
     @Query("SELECT c FROM Customization c WHERE c.sessionId = :sessionId AND c.userId IS NULL " +
             "ORDER BY c.updatedAt DESC")
     List<Customization> findBySessionId(@Param("sessionId") String sessionId);
 
-    //find guest's customizations for a specific product
+    // Find guest's customizations for a specific product
     @Query("SELECT c FROM Customization c WHERE c.sessionId = :sessionId AND c.productId = :productId " +
             "AND c.userId IS NULL ORDER BY c.updatedAt DESC")
     List<Customization> findBySessionIdAndProductId(
@@ -48,17 +48,13 @@ public interface CustomizationRepository extends JpaRepository<Customization, UU
 
     // Find incomplete customizations (for cleanup)
     @Query("SELECT c FROM Customization c WHERE c.isCompleted = false " +
-            "AND c.lastAccessedAt < :threshold")
+            "AND c.createdAt < :threshold")
     List<Customization> findIncompleteCustomizationsOlderThan(
             @Param("threshold") LocalDateTime threshold
     );
 
-    // find recent customizations
+    // Find recent customization
     Optional<Customization> findTopByUserIdAndProductIdOrderByUpdatedAtDesc(UUID userId, UUID productId);
-
-    @Modifying
-    @Query("UPDATE Customization c SET c.lastAccessedAt = :accessTime WHERE c.id = :id")
-    void updateLastAccessedAt(@Param("id") UUID id, @Param("accessTime") LocalDateTime accessTime);
 
     // Delete old guest customizations (cleanup job)
     @Modifying
@@ -66,3 +62,4 @@ public interface CustomizationRepository extends JpaRepository<Customization, UU
             "AND c.createdAt < :threshold")
     void deleteOldGuestCustomizations(@Param("threshold") LocalDateTime threshold);
 }
+

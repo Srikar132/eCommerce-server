@@ -14,9 +14,8 @@ import java.util.UUID;
 public class CustomizationSummary {
     private UUID id;
     private String customizationId;
+    private UUID variantId;
+    private UUID designId;
+    private String threadColorHex;
     private String previewImageUrl;
-    private String thumbnailUrl;
-    private Boolean hasText;
-    private Boolean hasDesign;
-    private Boolean hasUploadedImage;
 }

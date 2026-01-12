@@ -4,11 +4,9 @@ import com.nala.armoire.annotation.CurrentUser;
 import com.nala.armoire.model.dto.request.AddReviewRequest;
 import com.nala.armoire.model.dto.response.*;
 import com.nala.armoire.security.UserPrincipal;
-import com.nala.armoire.service.DesignService;
 import com.nala.armoire.service.ProductSearchService;
 import com.nala.armoire.service.ProductService;
 import com.nala.armoire.service.ProductSyncService;
-import com.nala.armoire.util.PagedResponseUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,9 +29,7 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
-    private final DesignService designService;
     private final ProductSearchService productSearchService;
-
     private final ProductSyncService productSyncService;
 
     @PostMapping("/sync-products")
@@ -157,24 +153,4 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.CREATED).body(review);
     }
 
-
-    //  GET /api/v1/products/{slug}/designs - Get compatible designs
-    @GetMapping("/{slug}/designs")
-    public ResponseEntity<ApiResponse<PagedResponse<DesignListDTO>>> getCompatibleDesigns(
-            @PathVariable String slug,
-            @RequestParam(defaultValue = "0") Integer page,
-            @RequestParam(defaultValue = "20") Integer size) {
-
-        log.info("GET /api/v1/products/{}/designs", slug);
-
-        Page<DesignListDTO> pageResult =
-                designService.getCompatibleDesigns(slug, page, size);
-
-        PagedResponse<DesignListDTO> response =
-                PagedResponseUtil.fromPage(pageResult);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(response, "Compatible designs retrieved")
-        );
-    }
 }

@@ -302,21 +302,13 @@ public class CartService {
         return cartMapper.toCartResponse(cart);
     }
 
+
     private BigDecimal calculateCustomizationPrice(Customization customization) {
-        BigDecimal price = BigDecimal.ZERO;
-
-        if (Boolean.TRUE.equals(customization.getHasText())) {
-            price = price.add(BigDecimal.valueOf(5.00));
-        }
-        if (Boolean.TRUE.equals(customization.getHasDesign())) {
-            price = price.add(BigDecimal.valueOf(10.00));
-        }
-        if (Boolean.TRUE.equals(customization.getHasUploadedImage())) {
-            price = price.add(BigDecimal.valueOf(15.00));
-        }
-
-        return price;
+        // Fixed price for customization (embroidery service)
+        // In the future, this could be based on design complexity, size, etc.
+        return BigDecimal.valueOf(10.00);
     }
+
 
     private boolean isSameItem(CartItem item1, CartItem item2) {
         boolean sameProduct = item1.getProduct().getId().equals(item2.getProduct().getId());

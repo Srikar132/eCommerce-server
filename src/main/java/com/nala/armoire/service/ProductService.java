@@ -45,8 +45,7 @@ public class ProductService {
             Boolean isCustomizable,
             String sort,
             int page,
-            int limit
-    ) {
+            int limit) {
 
         Specification<Product> spec = (root, query, cb) -> cb.conjunction();
 
@@ -135,8 +134,7 @@ public class ProductService {
 
     private boolean isValidSortField(String field) {
         List<String> validFields = List.of(
-                "createdAt", "updatedAt", "name", "basePrice", "averageRating"
-        );
+                "createdAt", "updatedAt", "name", "basePrice", "averageRating");
         return validFields.contains(field);
     }
 
@@ -248,14 +246,11 @@ public class ProductService {
                                                                 .altText(image.getAltText())
                                                                 .displayOrder(image.getDisplayOrder())
                                                                 .isPrimary(image.getIsPrimary())
-                                                                .build()
-                                                        )
-                                                        .toList()
-                                        )
-                                        .build()
-                                )
-                                .toList()
-                )
+                                                                .imageRole(image.getImageRole())
+                                                                .build())
+                                                        .toList())
+                                        .build())
+                                .toList())
 
                 .averageRating(averageRating)
                 .reviewCount(reviewCount)
@@ -273,6 +268,7 @@ public class ProductService {
                 .altText(image.getAltText())
                 .displayOrder(image.getDisplayOrder())
                 .isPrimary(image.getIsPrimary())
+                .imageRole(image.getImageRole())
                 .build();
     }
 

@@ -21,6 +21,5 @@ public class DesignCategoryDTO {
     private String description;
     private Integer displayOrder;
     private Boolean isActive;
-    private Integer designCount;
     private LocalDateTime createdAt;
 }

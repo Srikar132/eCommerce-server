@@ -16,14 +16,13 @@ import java.util.UUID;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CustomizationDTO {
     private String customizationId;
+    private UUID userId;
+    private String sessionId;
     private UUID productId;
+    private UUID variantId;
+    private UUID designId;
+    private String threadColorHex;
     private String previewImageUrl;
-    private String thumbnailUrl;
-    private CustomizationConfigDTO configuration;
-    private Boolean hasText;
-    private Boolean hasDesign;
-    private Boolean hasUploadedImage;
-    private Integer layerCount;
     private Boolean isCompleted;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

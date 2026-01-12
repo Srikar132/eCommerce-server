@@ -39,6 +39,11 @@ public class ProductImage {
     @Builder.Default
     private Boolean isPrimary = false;
 
+    @Column(name = "image_role", length = 30)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private ImageRole imageRole = ImageRole.PREVIEW_BASE;
+
     // Ensure alt text defaults to variant description
     @PrePersist
     protected void onCreate() {

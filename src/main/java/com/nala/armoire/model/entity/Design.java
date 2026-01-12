@@ -1,16 +1,17 @@
 package com.nala.armoire.model.entity;
 
+import com.nala.armoire.listener.DesignEntityListener;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.UUID;
 
 @Entity
 @Table(name = "designs")
+@EntityListeners(DesignEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -43,16 +44,16 @@ public class Design {
     @Column(length = 500)
     private String tags;
 
-    @Column(name = "allowed_product_types", columnDefinition = "TEXT")
-    private String allowedProductTypes;
-
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "is_premium")
+    @Builder.Default
     private Boolean isPremium = false;
 
     @Column(name = "download_count")
+    @Builder.Default
     private Long downloadCount = 0L;
 
     @CreationTimestamp

@@ -22,12 +22,7 @@ public class SaveCustomizationResponse {
     /**
      * The preview image URL that was saved
      */
-    private String previewUrl;
-
-    /**
-     * The thumbnail image URL that was saved
-     */
-    private String thumbnailUrl;
+    private String previewImageUrl;
 
     /**
      * When the customization was created

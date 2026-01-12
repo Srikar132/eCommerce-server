@@ -26,19 +26,17 @@ public class DesignCategoryController {
      * GET /api/v1/design-categories - List all categories
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<DesignCategoryDTO>>> getAllCategories() {
+    public ResponseEntity<List<DesignCategoryDTO>> getAllCategories() {
 
         log.info("GET /api/v1/design-categories");
 
         List<DesignCategoryDTO> categories = designService.getAllCategories();
 
-        return ResponseEntity.ok(
-                ApiResponse.success(categories, "Categories retrieved successfully")
-        );
+        return ResponseEntity.ok(categories);
     }
 
     @GetMapping("/{slug}/designs")
-    public ResponseEntity<ApiResponse<PagedResponse<DesignListDTO>>> getDesignsByCategory(
+    public ResponseEntity<PagedResponse<DesignListDTO>> getDesignsByCategory(
             @PathVariable String slug,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
@@ -55,7 +53,7 @@ public class DesignCategoryController {
 
         // 3️⃣ Wrap with ApiResponse
         return ResponseEntity.ok(
-                ApiResponse.success(response, " Designs retrieved successfully ")
+                response
         );
     }
 }

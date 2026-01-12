@@ -1,5 +1,6 @@
 package com.nala.armoire.model.dto.response;
 
+import com.nala.armoire.model.entity.ImageRole;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,4 +19,5 @@ public class ProductImageDTO {
     private String altText;
     private Integer displayOrder;
     private Boolean isPrimary;
+    private ImageRole imageRole;
 }

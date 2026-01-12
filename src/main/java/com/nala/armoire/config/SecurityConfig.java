@@ -51,6 +51,7 @@ public class SecurityConfig {
                                 "/api/v1/categories/**",
                                 "/api/v1/brands/**",
                                 "/api/v1/designs/**",
+                                "/api/v1/design-categories/**",
                                 "/api/v1/search/**",
                                 "/health"
                         ).permitAll()
@@ -89,7 +90,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+        configuration.setAllowedOriginPatterns(Arrays.asList("*")); // Allow all origins
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);

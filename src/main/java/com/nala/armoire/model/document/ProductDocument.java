@@ -202,5 +202,8 @@ public class ProductDocument {
 
         @Field(type = FieldType.Boolean)
         private Boolean isPrimary;
+
+        @Field(type = FieldType.Keyword)
+        private String imageRole;
     }
 }

@@ -35,28 +35,16 @@ public interface DesignRepository extends JpaRepository<Design, UUID> {
             "LOWER(d.tags) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
     Page<Design> searchDesigns(@Param("searchTerm") String searchTerm, Pageable pageable);
 
-    //find compatible designs for a product type
-    @Query("SELECT d FROM Design d WHERE d.isActive = true AND " +
-            "(d.allowedProductTypes IS NULL OR d.allowedProductTypes LIKE CONCAT('%', :productType, '%'))")
-    Page<Design> findCompatibleDesigns(@Param("productType") String productType, Pageable pageable);
-
-    //find compatible designs by product slug
-    @Query("SELECT d FROM Design d, Product p WHERE p.slug = :productSlug AND d.isActive = true AND " +
-            "(d.allowedProductTypes IS NULL OR d.allowedProductTypes LIKE CONCAT('%', p.category.slug, '%'))")
-    Page<Design> findCompatibleDesignsByProductSlug(@Param("productSlug") String productSlug, Pageable pageable);
-
+    // Find designs with filters (removed product category compatibility check)
     @Query("SELECT d FROM Design d WHERE d.isActive = true " +
             "AND (:categoryId IS NULL OR d.category.id = :categoryId) " +
             "AND (:searchTerm IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
             "OR LOWER(d.tags) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
-            "AND (:isPremium IS NULL OR d.isPremium = :isPremium) " +
-            "AND (:productType IS NULL OR d.allowedProductTypes IS NULL " +
-            "OR d.allowedProductTypes LIKE CONCAT('%', :productType, '%'))")
+            "AND (:isPremium IS NULL OR d.isPremium = :isPremium)")
     Page<Design> findWithFilters(
             @Param("categoryId") Long categoryId,
             @Param("searchTerm") String searchTerm,
             @Param("isPremium") Boolean isPremium,
-            @Param("productType") String productType,
             Pageable pageable
     );
 

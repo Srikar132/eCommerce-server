@@ -77,6 +77,41 @@ public class ProductSyncService {
     }
 
     /**
+     * Clear all products from Elasticsearch
+     */
+    public void clearAllProducts() {
+        log.info("Clearing all products from Elasticsearch");
+        try {
+            productElasticsearchRepository.deleteAll();
+            log.info("Successfully cleared all products from Elasticsearch");
+        } catch (Exception e) {
+            log.error("Failed to clear products from Elasticsearch", e);
+            throw new RuntimeException("Failed to clear products", e);
+        }
+    }
+
+    /**
+     * Clear and resync all products (full reindex)
+     */
+    @Transactional(readOnly = true)
+    public void clearAndResyncAllProducts() {
+        log.info("Starting full reindex - clearing and resyncing all products");
+        
+        try {
+            // Step 1: Clear all existing products
+            clearAllProducts();
+            
+            // Step 2: Sync all products from PostgreSQL
+            syncAllProducts();
+            
+            log.info("Successfully completed full reindex");
+        } catch (Exception e) {
+            log.error("Failed to complete full reindex", e);
+            throw new RuntimeException("Full reindex failed", e);
+        }
+    }
+
+    /**
      * Convert JPA Product entity to Elasticsearch ProductDocument
      */
     private ProductDocument convertToDocument(Product product) {
@@ -104,6 +139,7 @@ public class ProductSyncService {
                                     .altText(img.getAltText())
                                     .displayOrder(img.getDisplayOrder())
                                     .isPrimary(img.getIsPrimary())
+                                    .imageRole(img.getImageRole() != null ? img.getImageRole().name() : null)
                                     .build())
                             .collect(Collectors.toList());
 
@@ -130,6 +166,7 @@ public class ProductSyncService {
                         .altText(img.getAltText())
                         .displayOrder(img.getDisplayOrder())
                         .isPrimary(img.getIsPrimary())
+                        .imageRole(img.getImageRole() != null ? img.getImageRole().name() : null)
                         .build())
                 .collect(Collectors.toList());
 

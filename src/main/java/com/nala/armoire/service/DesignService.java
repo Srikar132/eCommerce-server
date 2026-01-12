@@ -1,7 +1,5 @@
 package com.nala.armoire.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nala.armoire.exception.ResourceNotFoundException;
 import com.nala.armoire.model.dto.response.DesignCategoryDTO;
 import com.nala.armoire.model.dto.response.DesignDTO;
@@ -21,7 +19,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -33,8 +30,7 @@ import java.util.stream.Collectors;
 public class DesignService {
 
     private final DesignRepository designRepository;
-    private final DesignCategoryRepository categoryRepository;
-    private final ObjectMapper objectMapper;
+    private final DesignCategoryRepository designCategoryRepository;
 
     // ==================== DESIGN CATEGORY METHODS ====================
 
@@ -43,7 +39,7 @@ public class DesignService {
     public List<DesignCategoryDTO> getAllCategories() {
         log.info("Fetching all active design categories");
 
-        List<DesignCategory> categories = categoryRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
+        List<DesignCategory> categories = designCategoryRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
 
         return categories.stream()
                 .map(this::convertToCategoryDTO)
@@ -55,8 +51,8 @@ public class DesignService {
     public DesignCategoryDTO getCategoryBySlug(String slug) {
         log.info("Fetching design category by slug: {}", slug);
 
-        DesignCategory category = categoryRepository.findBySlug(slug)
-                .orElseThrow(() -> new ResourceNotFoundException("Design category not found: "+slug));
+        DesignCategory category = designCategoryRepository.findBySlug(slug)
+                .orElseThrow(() -> new ResourceNotFoundException("Design category not found: " + slug));
 
         return convertToCategoryDTO(category);
 
@@ -90,7 +86,7 @@ public class DesignService {
         log.info("Fetching designs for category: {}", categoryId);
 
         // Verify category exists
-        categoryRepository.findById(categoryId)
+        designCategoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + categoryId));
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -119,15 +115,7 @@ public class DesignService {
         return designs.map(this::convertToDesignListDto);
     }
 
-    @Transactional(readOnly = true)
-    public Page<DesignListDTO> getCompatibleDesigns(String productSlug, Integer page, Integer size) {
-        log.info("Fetching compatible designs for product slug: {}", productSlug);
-
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Design> designs = designRepository.findCompatibleDesignsByProductSlug(productSlug, pageable);
-
-        return designs.map(this::convertToDesignListDto);
-    }
+    // Removed getCompatibleDesigns method - all designs are now compatible with all products
 
     @Transactional(readOnly = true)
     public Page<DesignListDTO> filterDesigns(DesignFilterDTO filter) {
@@ -137,21 +125,14 @@ public class DesignService {
                 filter.getPage(),
                 filter.getSize(),
                 filter.getSortBy(),
-                filter.getSortDirection()
-        );
+                filter.getSortDirection());
 
-        // Get first product type if multiple
-        String productType = (filter.getProductTypes() != null && !filter.getProductTypes().isEmpty())
-                ? filter.getProductTypes().get(0)
-                : null;
-
+        // Product category filter removed - all designs work with all products
         Page<Design> designs = designRepository.findWithFilters(
                 filter.getCategoryId(),
                 filter.getSearchTerm(),
                 filter.getIsPremium(),
-                productType,
-                pageable
-        );
+                pageable);
 
         return designs.map(this::convertToDesignListDto);
     }
@@ -174,7 +155,6 @@ public class DesignService {
                 .description(category.getDescription())
                 .displayOrder(category.getDisplayOrder())
                 .isActive(category.getIsActive())
-                .designCount(category.getDesigns() != null ? category.getDesigns().size() : 0)
                 .createdAt(category.getCreatedAt())
                 .build();
     }
@@ -188,7 +168,6 @@ public class DesignService {
                 .imageUrl(design.getDesignImageUrl())
                 .thumbnailUrl(design.getThumbnailUrl())
                 .tags(parseTagsFromString(design.getTags()))
-                .allowedProductTypes(parseProductTypesFromJson(design.getAllowedProductTypes()))
                 .isActive(design.getIsActive())
                 .isPremium(design.getIsPremium())
                 .downloadCount(design.getDownloadCount())
@@ -200,9 +179,17 @@ public class DesignService {
         return DesignListDTO.builder()
                 .id(design.getId())
                 .name(design.getName())
+                .slug(design.getSlug())
+                .description(design.getDescription())
+                .imageUrl(design.getDesignImageUrl()) // Map designImageUrl -> imageUrl
                 .thumbnailUrl(design.getThumbnailUrl())
+                .category(convertToCategoryDTO(design.getCategory()))
                 .tags(parseTagsFromString(design.getTags()))
+                .isActive(design.getIsActive())
                 .isPremium(design.getIsPremium())
+                .downloadCount(design.getDownloadCount())
+                .createdAt(design.getCreatedAt())
+                .updatedAt(design.getUpdatedAt())
                 .build();
     }
 
@@ -214,18 +201,5 @@ public class DesignService {
                 .map(String::trim)
                 .filter(tag -> !tag.isEmpty())
                 .collect(Collectors.toList());
-    }
-
-    private List<String> parseProductTypesFromJson(String json) {
-        if (json == null || json.isBlank()) {
-            return null; // null means compatible with all products
-        }
-        try {
-            return objectMapper.readValue(json, new TypeReference<List<String>>() {
-            });
-        } catch (Exception e) {
-            log.error("Error parsing product types JSON: {}", json, e);
-            return new ArrayList<>();
-        }
     }
 }

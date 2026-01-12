@@ -1,9 +1,10 @@
 package com.nala.armoire.controller;
 
 import com.nala.armoire.model.dto.request.CustomizationRequest;
-import com.nala.armoire.model.dto.request.ValidateRequest;
 import com.nala.armoire.model.dto.response.*;
 import com.nala.armoire.service.CustomizationService;
+
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,38 +25,18 @@ public class CustomizationController {
     private final CustomizationService customizationService;
 
     /**
-     * POST /api/v1/customization/validate
-     * Validates the customization configuration before saving
-     * Used in: Customizer page - real-time validation as user adds layers
-     */
-    @PostMapping("/validate")
-    public ResponseEntity<ApiResponse<ValidateResponse>> validateCustomization(
-            @RequestBody ValidateRequest request) {
-
-        log.info("POST /api/v1/customization/validate - product: {}", request.getProductId());
-
-        ValidateResponse validation = customizationService.validateConfiguration(
-                request.getProductId(),
-                request.getConfiguration()
-        );
-
-        return ResponseEntity.ok(ApiResponse.success(validation, "Validation completed"));
-    }
-
-    /**
      * POST /api/v1/customization/save
-     * Saves or updates customization with frontend-generated preview images
+     * Saves or updates customization with frontend-generated preview image
      * Used in: Customizer page - "Save Design" button
      *
      * Frontend must:
-     * 1. Generate preview image using Konva/Canvas (full size ~1200x1200px)
-     * 2. Generate thumbnail image (smaller ~300x300px)
-     * 3. Upload both to S3/CloudFront
-     * 4. Send URLs in request along with configuration
+     * 1. Generate preview image using Konva/Canvas
+     * 2. Upload to S3/CloudFront
+     * 3. Send URL in request along with design details
      */
     @PostMapping("/save")
-    public ResponseEntity<ApiResponse<SaveCustomizationResponse>> saveCustomization(
-            @RequestBody CustomizationRequest request,
+    public ResponseEntity<SaveCustomizationResponse> saveCustomization(
+            @Valid @RequestBody CustomizationRequest request,
             Authentication authentication) {
 
         log.info("POST /api/v1/customization/save - product: {}", request.getProductId());
@@ -63,11 +44,11 @@ public class CustomizationController {
         UUID userId = getUserIdFromAuth(authentication);
         SaveCustomizationResponse response = customizationService.saveCustomization(request, userId);
 
-        String message = response.getIsUpdate()
-                ? "Customization updated successfully"
-                : "Customization saved successfully";
+        // String message = response.getIsUpdate()
+        //         ? "Customization updated successfully"
+        //         : "Customization saved successfully";
 
-        return ResponseEntity.ok(ApiResponse.success(response, message));
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -79,7 +60,7 @@ public class CustomizationController {
      * - My Designs page - View design details
      */
     @GetMapping("/{customizationId}")
-    public ResponseEntity<ApiResponse<CustomizationDTO>> getCustomization(
+    public ResponseEntity<CustomizationDTO> getCustomization(
             @PathVariable String customizationId,
             Authentication authentication) {
 
@@ -88,7 +69,7 @@ public class CustomizationController {
         UUID userId = getUserIdFromAuth(authentication);
         CustomizationDTO customization = customizationService.getCustomizationById(customizationId, userId);
 
-        return ResponseEntity.ok(ApiResponse.success(customization, "Customization retrieved"));
+        return ResponseEntity.ok(customization);
     }
 
     /**
@@ -99,7 +80,7 @@ public class CustomizationController {
      * - Product page - Show user's existing designs for this product
      */
     @GetMapping("/product/{productId}")
-    public ResponseEntity<ApiResponse<List<CustomizationDTO>>> getProductCustomizations(
+    public ResponseEntity<List<CustomizationDTO>> getProductCustomizations(
             @PathVariable UUID productId,
             Authentication authentication) {
 
@@ -109,8 +90,7 @@ public class CustomizationController {
         List<CustomizationDTO> customizations = customizationService
                 .getUserCustomizationsForProduct(userId, productId);
 
-        return ResponseEntity.ok(ApiResponse.success(customizations,
-                "Product customizations retrieved"));
+        return ResponseEntity.ok(customizations);
     }
 
     /**
@@ -118,21 +98,21 @@ public class CustomizationController {
      * Gets the most recent customization for a product
      * Used in: Customizer page - Auto-load last design when reopening customizer
      */
-    @GetMapping("/product/{productId}/latest")
-    public ResponseEntity<ApiResponse<CustomizationDTO>> getLatestCustomization(
-            @PathVariable UUID productId,
-            Authentication authentication) {
+    // @GetMapping("/product/{productId}/latest")
+    // public ResponseEntity<CustomizationDTO> getLatestCustomization(
+    //         @PathVariable UUID productId,
+    //         Authentication authentication) {
 
-        log.info("GET /api/v1/customization/product/{}/latest", productId);
+    //     log.info("GET /api/v1/customization/product/{}/latest", productId);
 
-        UUID userId = getUserIdFromAuth(authentication);
-        Optional<CustomizationDTO> customization = customizationService
-                .getLatestCustomizationForProduct(userId, productId);
+    //     UUID userId = getUserIdFromAuth(authentication);
+    //     Optional<CustomizationDTO> customization = customizationService
+    //             .getLatestCustomizationForProduct(userId, productId);
 
-        return customization
-                .map(c -> ResponseEntity.ok(ApiResponse.success(c, "Latest customization retrieved")))
-                .orElse(ResponseEntity.ok(ApiResponse.success(null, "No customizations found")));
-    }
+    //     return customization
+    //             .map(ResponseEntity::ok)
+    //             .orElse(ResponseEntity.ok(null));
+    // }
 
     /**
      * GET /api/v1/customization/my-designs
@@ -140,7 +120,7 @@ public class CustomizationController {
      * Used in: "My Designs" page - Display all user's saved designs
      */
     @GetMapping("/my-designs")
-    public ResponseEntity<ApiResponse<Page<CustomizationDTO>>> getMyDesigns(
+    public ResponseEntity<PagedResponse<CustomizationDTO>> getMyDesigns(
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "12") Integer size,
             Authentication authentication) {
@@ -151,7 +131,7 @@ public class CustomizationController {
         Page<CustomizationDTO> customizations = customizationService
                 .getUserCustomizations(userId, page, size);
 
-        return ResponseEntity.ok(ApiResponse.success(customizations, "User designs retrieved"));
+        return ResponseEntity.ok(toPagedResponse(customizations));
     }
 
     /**
@@ -160,7 +140,7 @@ public class CustomizationController {
      * Used in: Customizer page - Load designs for guest users (before login)
      */
     @GetMapping("/guest/product/{productId}")
-    public ResponseEntity<ApiResponse<List<CustomizationDTO>>> getGuestCustomizations(
+    public ResponseEntity<List<CustomizationDTO>> getGuestCustomizations(
             @PathVariable UUID productId,
             @RequestParam String sessionId) {
 
@@ -169,8 +149,7 @@ public class CustomizationController {
         List<CustomizationDTO> customizations = customizationService
                 .getGuestCustomizationsForProduct(sessionId, productId);
 
-        return ResponseEntity.ok(ApiResponse.success(customizations,
-                "Guest customizations retrieved"));
+        return ResponseEntity.ok(customizations);
     }
 
     /**
@@ -179,7 +158,7 @@ public class CustomizationController {
      * Used in: "My Designs" page - Delete design button
      */
     @DeleteMapping("/{customizationId}")
-    public ResponseEntity<ApiResponse<Void>> deleteCustomization(
+    public ResponseEntity<Void> deleteCustomization(
             @PathVariable String customizationId,
             Authentication authentication) {
 
@@ -188,7 +167,7 @@ public class CustomizationController {
         UUID userId = getUserIdFromAuth(authentication);
         customizationService.deleteCustomization(customizationId, userId);
 
-        return ResponseEntity.ok(ApiResponse.success(null, "Customization deleted successfully"));
+        return ResponseEntity.ok(null);
     }
 
     /**
@@ -207,5 +186,22 @@ public class CustomizationController {
             log.warn("Failed to parse user ID from authentication: {}", authentication.getName());
             return null;
         }
+    }
+
+    /**
+     * Helper method to convert Spring Page to PagedResponse
+     */
+    private <T> PagedResponse<T> toPagedResponse(Page<T> page) {
+        return PagedResponse.<T>builder()
+                .content(page.getContent())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .first(page.isFirst())
+                .last(page.isLast())
+                .hasNext(page.hasNext())
+                .hasPrevious(page.hasPrevious())
+                .build();
     }
 }

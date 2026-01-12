@@ -122,12 +122,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Object>> handleValidation(ValidationException ex) {
         log.error("Validation error: {}", ex.getMessage());
 
-        if (ex.getErrors() != null) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(ex.getMessage(), "VALIDATION_ERROR", ex.getErrors()));
-        }
-
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ex.getMessage(), "VALIDATION_ERROR"));

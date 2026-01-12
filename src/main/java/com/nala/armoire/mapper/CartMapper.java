@@ -78,11 +78,10 @@ public class CartMapper {
         return CustomizationSummary.builder()
                 .id(customization.getId())
                 .customizationId(customization.getCustomizationId())
+                .variantId(customization.getVariantId())
+                .designId(customization.getDesignId())
+                .threadColorHex(customization.getThreadColorHex())
                 .previewImageUrl(customization.getPreviewImageUrl())
-                .thumbnailUrl(customization.getThumbnailUrl())
-                .hasText(customization.getHasText())
-                .hasDesign(customization.getHasDesign())
-                .hasUploadedImage(customization.getHasUploadedImage())
                 .build();
     }
 

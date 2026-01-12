@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
@@ -33,7 +32,8 @@ public class UserController {
     }
 
     @PutMapping("/profile")
-    ResponseEntity<UserProfileDTO> updateUserProfile(@CurrentUser UserPrincipal currentUser, @Valid @RequestBody UpdateProfileRequest userProfile) {
+    ResponseEntity<UserProfileDTO> updateUserProfile(@CurrentUser UserPrincipal currentUser,
+            @Valid @RequestBody UpdateProfileRequest userProfile) {
         UserProfileDTO profile = userService.updateUserProfile(currentUser.getId(), userProfile);
         return ResponseEntity.ok(profile);
     }
@@ -47,8 +47,7 @@ public class UserController {
     @PostMapping("/addresses")
     ResponseEntity<AddressDTO> addAddresses(
             @CurrentUser UserPrincipal currentUser,
-            @Valid @RequestBody AddAddressRequest request
-    ) {
+            @Valid @RequestBody AddAddressRequest request) {
         AddressDTO address = addressService.addAddress(currentUser.getId(), request);
         return ResponseEntity.ok(address);
     }
@@ -57,26 +56,21 @@ public class UserController {
     ResponseEntity<AddressDTO> updateAddress(
             @CurrentUser UserPrincipal currentUser,
             @PathVariable String id,
-            @Valid @RequestBody UpdateAddressRequest request
-    ) {
+            @Valid @RequestBody UpdateAddressRequest request) {
         AddressDTO address = addressService.updateAddress(
                 currentUser.getId(),
                 UUID.fromString(id),
-                request
-         );
+                request);
         return ResponseEntity.ok(address);
     }
-
 
     @DeleteMapping("/addresses/{id}")
     ResponseEntity<AddressDTO> deleteAddress(
             @CurrentUser UserPrincipal currentUser,
-            @PathVariable String id
-    ) {
+            @PathVariable String id) {
         addressService.deleteAddress(
                 currentUser.getId(),
-                UUID.fromString(id)
-        );
+                UUID.fromString(id));
         return ResponseEntity.noContent().build();
     }
 }
