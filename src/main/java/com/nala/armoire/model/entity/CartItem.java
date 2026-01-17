@@ -1,9 +1,6 @@
 package com.nala.armoire.model.entity;
 
-import com.nala.armoire.model.entity.Cart;
-import com.nala.armoire.model.entity.Customization;
-import com.nala.armoire.model.entity.Product;
-import com.nala.armoire.model.entity.ProductVariant;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

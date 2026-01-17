@@ -44,7 +44,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         //public endpoints
-
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/products/**",
@@ -52,10 +51,8 @@ public class SecurityConfig {
                                 "/api/v1/brands/**",
                                 "/api/v1/designs/**",
                                 "/api/v1/design-categories/**",
-                                "/api/v1/search/**",
                                 "/health"
                         ).permitAll()
-
 
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
@@ -69,8 +66,7 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
     }

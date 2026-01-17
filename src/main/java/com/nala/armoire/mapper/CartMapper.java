@@ -77,7 +77,6 @@ public class CartMapper {
 
         return CustomizationSummary.builder()
                 .id(customization.getId())
-                .customizationId(customization.getCustomizationId())
                 .variantId(customization.getVariantId())
                 .designId(customization.getDesignId())
                 .threadColorHex(customization.getThreadColorHex())

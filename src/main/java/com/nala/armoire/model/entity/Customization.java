@@ -22,11 +22,7 @@ public class Customization {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
-    private String customizationId;
-
     private UUID userId;
-    private String sessionId;
 
     @Column(nullable = false)
     private UUID productId;
@@ -40,7 +36,7 @@ public class Customization {
     @Column(nullable = false, length = 7)
     private String threadColorHex;
 
-    @Column(nullable = false, length = 500)
+    @Column( length = 500)  // S3 URLs are typically under 500 characters
     private String previewImageUrl;
 
     @Builder.Default

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -14,10 +15,10 @@ import java.time.LocalDateTime;
 public class SaveCustomizationResponse {
 
     /**
-     * The unique customization ID (UUID string)
+     * The unique customization ID (UUID)
      * Use this to retrieve/update the customization later
      */
-    private String customizationId;
+    private UUID id;
 
     /**
      * The preview image URL that was saved

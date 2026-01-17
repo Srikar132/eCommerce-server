@@ -1,0 +1,359 @@
+package com.nala.armoire.service;
+
+import com.nala.armoire.exception.ResourceNotFoundException;
+import com.nala.armoire.mapper.CartMapper;
+import com.nala.armoire.model.dto.request.AddToCartRequest;
+import com.nala.armoire.model.dto.request.SyncLocalCartRequest;
+import com.nala.armoire.model.dto.request.UpdateCartItemRequest;
+import com.nala.armoire.model.dto.response.CartResponse;
+import com.nala.armoire.model.dto.response.CartSummaryResponse;
+import com.nala.armoire.model.entity.*;
+import com.nala.armoire.repository.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Cart Service - Authenticated Users Only
+ * 
+ * Architecture Changes (v2.0):
+ * - Removed guest session-based cart management (no more sessionId parameter)
+ * - Guest carts are now managed locally in frontend (localStorage)
+ * - Added syncLocalCart() method for merging local cart on login/checkout
+ * - Removed sessionLocks (no longer needed)
+ * - Kept userLocks for preventing duplicate user cart creation
+ */
+@Service
+@Slf4j
+@RequiredArgsConstructor
+@Transactional
+public class CartService {
+
+    private final CartRepository cartRepository;
+    private final CartItemRepository cartItemRepository;
+    private final ProductRepository productRepository;
+    private final ProductVariantRepository productVariantRepository;
+    private final CustomizationRepository customizationRepository;
+    private final CartMapper cartMapper;
+    
+    // Lock map for user-based cart creation to prevent race conditions
+    private final ConcurrentHashMap<UUID, Object> userLocks = new ConcurrentHashMap<>();
+
+    // ==================== PUBLIC METHODS (Authenticated Users Only) ====================
+
+    /**
+     * Get cart for authenticated user
+     * Creates cart if it doesn't exist
+     */
+    public CartResponse getCart(User user) {
+        log.debug("Getting cart for authenticated user: userId={}, email={}", user.getId(), user.getEmail());
+        Cart cart = getOrCreateCartForUser(user);
+        log.debug("Cart retrieved: cartId={}, itemCount={}", cart.getId(), cart.getItems().size());
+        return cartMapper.toCartResponse(cart);
+    }
+
+    /**
+     * Add item to authenticated user's cart
+     */
+    public CartResponse addItemToCart(User user, AddToCartRequest request) {
+        log.info("Adding item to cart for authenticated user: userId={}, productId={}, variantId={}, quantity={}", 
+                user.getId(), request.getProductId(), request.getProductVariantId(), request.getQuantity());
+        Cart cart = getOrCreateCartForUser(user);
+        return addItemToCartInternal(cart, request);
+    }
+
+    /**
+     * Update cart item quantity
+     */
+    public CartResponse updateCartItem(User user, UUID itemId, UpdateCartItemRequest request) {
+        Cart cart = getOrCreateCartForUser(user);
+        return updateCartItemInternal(cart, itemId, request);
+    }
+
+    /**
+     * Remove cart item
+     */
+    public CartResponse removeCartItem(User user, UUID itemId) {
+        Cart cart = getOrCreateCartForUser(user);
+        return removeCartItemInternal(cart, itemId);
+    }
+
+    /**
+     * Clear entire cart
+     */
+    public CartResponse clearCart(User user) {
+        log.info("Clearing cart for authenticated user: userId={}", user.getId());
+        Cart cart = getOrCreateCartForUser(user);
+        int itemCount = cart.getItems().size();
+        cart.clearItems();
+        cartRepository.save(cart);
+        log.info("Cart cleared: userId={}, itemsRemoved={}", user.getId(), itemCount);
+        return cartMapper.toCartResponse(cart);
+    }
+
+    /**
+     * Get cart summary
+     */
+    public CartSummaryResponse getCartSummary(User user) {
+        Cart cart = getOrCreateCartForUser(user);
+        return cartMapper.toCartSummaryResponse(cart);
+    }
+
+    /**
+     * Sync local cart to backend on login/checkout
+     * 
+     * This method:
+     * 1. Receives local cart items from frontend
+     * 2. For each item with unsaved customization data:
+     *    - Saves customization to DB
+     *    - Gets customizationId
+     * 3. Adds all items to user's cart (merges with existing)
+     * 4. Returns final merged cart
+     */
+    public CartResponse syncLocalCart(User user, SyncLocalCartRequest request) {
+        log.info("Syncing local cart for user: userId={}, localItemCount={}", user.getId(), request.getItems().size());
+        
+        Cart cart = getOrCreateCartForUser(user);
+        int initialItemCount = cart.getItems().size();
+        
+        for (SyncLocalCartRequest.LocalCartItemRequest localItem : request.getItems()) {
+            UUID customizationId = localItem.getCustomizationId();
+            
+            // If there's local customization data but no customizationId,
+            // we need to save the customization first
+            if (customizationId == null && localItem.getCustomizationData() != null) {
+                customizationId = saveLocalCustomization(user, localItem);
+            }
+            
+            // Add item to cart
+            AddToCartRequest addRequest = AddToCartRequest.builder()
+                    .productId(localItem.getProductId())
+                    .productVariantId(localItem.getProductVariantId())
+                    .customizationId(customizationId)
+                    .quantity(localItem.getQuantity())
+                    .customizationSummary(localItem.getCustomizationSummary())
+                    .build();
+            
+            addItemToCartInternal(cart, addRequest);
+        }
+        
+        int finalItemCount = cart.getItems().size();
+        log.info("Local cart synced: userId={}, itemsBefore={}, itemsAfter={}, itemsAdded={}", 
+                user.getId(), initialItemCount, finalItemCount, (finalItemCount - initialItemCount));
+        
+        return cartMapper.toCartResponse(cart);
+    }
+
+    // ==================== INTERNAL HELPER METHODS ====================
+
+    /**
+     * Get or create cart for user with synchronization to prevent duplicates
+     */
+    private Cart getOrCreateCartForUser(User user) {
+        log.debug("Getting or creating cart for user: userId={}", user.getId());
+        
+        // Use a lock specific to this userId to prevent race conditions
+        Object lock = userLocks.computeIfAbsent(user.getId(), k -> new Object());
+        
+        synchronized (lock) {
+            return cartRepository.findByUserWithItems(user)
+                    .orElseGet(() -> {
+                        log.info("Creating new cart for user: userId={}, email={}", user.getId(), user.getEmail());
+                        Cart cart = Cart.builder()
+                                .user(user)
+                                .isActive(true)
+                                .expiresAt(LocalDateTime.now().plusDays(30))
+                                .build();
+                        Cart savedCart = cartRepository.save(cart);
+                        log.info("New user cart created: cartId={}, userId={}", savedCart.getId(), user.getId());
+                        return savedCart;
+                    });
+        }
+    }
+
+    /**
+     * Save local customization to database
+     * Returns the saved customization's ID
+     */
+    private UUID saveLocalCustomization(User user, SyncLocalCartRequest.LocalCartItemRequest localItem) {
+        SyncLocalCartRequest.LocalCustomizationData customData = localItem.getCustomizationData();
+        
+        log.info("Saving local customization for user: userId={}, designId={}", 
+                user.getId(), customData.getDesignId());
+        
+        // Create customization from local data
+        // Note: You may need to handle preview image upload from base64 separately
+        Customization customization = Customization.builder()
+                .userId(user.getId())
+                .productId(localItem.getProductId())
+                .variantId(localItem.getProductVariantId())
+                .designId(customData.getDesignId())
+                .threadColorHex(customData.getThreadColorHex())
+                .previewImageUrl(customData.getPreviewImageBase64()) // TODO: Convert base64 to S3 upload
+                .isCompleted(true)
+                .build();
+        
+        Customization saved = customizationRepository.save(customization);
+        log.info("Local customization saved: customizationId={}", saved.getId());
+        
+        return saved.getId();
+    }
+
+    // ==================== REMOVED: All guest/session methods ====================
+    // - getCart(String sessionId)
+    // - addItemToCart(String sessionId, AddToCartRequest request)
+    // - updateCartItem(String sessionId, UUID itemId, UpdateCartItemRequest request)
+    // - removeCartItem(String sessionId, UUID itemId)
+    // - clearCart(String sessionId)
+    // - getCartSummary(String sessionId)
+    // - mergeGuestCartToUser(String sessionId, User user)
+    // - getOrCreateCartForSession(String sessionId)
+
+    // ==================== INTERNAL CART OPERATION METHODS ====================
+
+    
+
+    /**
+     * Add item to cart (internal method used by both direct add and sync)
+     */
+    private CartResponse addItemToCartInternal(Cart cart, AddToCartRequest request) {
+        // Validate and fetch product
+        Product product = productRepository.findById(request.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + request.getProductId()));
+
+        // Fetch variant if provided
+        ProductVariant variant = null;
+        if (request.getProductVariantId() != null) {
+            variant = productVariantRepository.findById(request.getProductVariantId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product variant not found with ID: " + request.getProductVariantId()));
+
+            // Validate variant belongs to product
+            if (!variant.getProduct().getId().equals(product.getId())) {
+                throw new IllegalArgumentException("Product variant does not belong to the specified product");
+            }
+        }
+
+        // Fetch customization if provided
+        Customization customization = null;
+        BigDecimal customizationPrice = BigDecimal.ZERO;
+        if (request.getCustomizationId() != null) {
+            customization = customizationRepository.findById(request.getCustomizationId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Customization not found with ID: " + request.getCustomizationId()));
+            customizationPrice = calculateCustomizationPrice(customization);
+        }
+
+        // Check if same item (without customization) already exists in cart
+        if (customization == null) {
+            CartItem existingItem = cartItemRepository
+                    .findByCartAndProductAndProductVariantAndCustomizationIsNull(cart, product, variant)
+                    .orElse(null);
+
+            if (existingItem != null) {
+                // Update quantity of existing item
+                existingItem.setQuantity(existingItem.getQuantity() + request.getQuantity());
+                existingItem.calculateItemTotal();
+                cart.recalculateTotals();
+                cartRepository.save(cart);
+
+                log.info("Updated existing cart item: itemId={}, newQuantity={}", existingItem.getId(), existingItem.getQuantity());
+                return cartMapper.toCartResponse(cart);
+            }
+        }
+
+        // Calculate unit price (base price + variant price if applicable)
+        BigDecimal unitPrice = product.getBasePrice() != null ? product.getBasePrice() : BigDecimal.ZERO;
+        if (variant != null && variant.getAdditionalPrice() != null) {
+            unitPrice = unitPrice.add(variant.getAdditionalPrice());
+        }
+
+        // Create new cart item
+        CartItem cartItem = CartItem.builder()
+                .product(product)
+                .productVariant(variant)
+                .customization(customization)
+                .quantity(request.getQuantity())
+                .unitPrice(unitPrice)
+                .customizationPrice(customizationPrice)
+                .customizationSummary(request.getCustomizationSummary())
+                .build();
+
+        // CRITICAL: Calculate item total before adding to cart
+        cartItem.calculateItemTotal();
+
+        // Add item to cart and save
+        cart.addItem(cartItem);
+        cartRepository.save(cart);
+
+        log.info("Added new item to cart: productId={}, variantId={}, quantity={}, unitPrice={}, itemTotal={}",
+                product.getId(),
+                variant != null ? variant.getId() : "none",
+                request.getQuantity(),
+                unitPrice,
+                cartItem.getItemTotal());
+
+        return cartMapper.toCartResponse(cart);
+    }
+
+    private CartResponse updateCartItemInternal(Cart cart, UUID itemId, UpdateCartItemRequest request) {
+        CartItem cartItem = cart.getItems().stream()
+                .filter(item -> item.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Cart item not found with ID: " + itemId));
+
+        // Validate quantity
+        if (request.getQuantity() <= 0) {
+            throw new IllegalArgumentException("Quantity must be greater than 0");
+        }
+
+        cartItem.setQuantity(request.getQuantity());
+        cartItem.calculateItemTotal();
+        cart.recalculateTotals();
+        cartRepository.save(cart);
+
+        log.info("Updated cart item: itemId={}, newQuantity={}, newItemTotal={}",
+                itemId, request.getQuantity(), cartItem.getItemTotal());
+
+        return cartMapper.toCartResponse(cart);
+    }
+
+    private CartResponse removeCartItemInternal(Cart cart, UUID itemId) {
+        CartItem cartItem = cart.getItems().stream()
+                .filter(item -> item.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Cart item not found with ID: " + itemId));
+
+        cart.removeItem(cartItem);
+        cartRepository.save(cart);
+
+        log.info("Removed item from cart: itemId={}", itemId);
+        return cartMapper.toCartResponse(cart);
+    }
+
+
+    private BigDecimal calculateCustomizationPrice(Customization customization) {
+        // Fixed price for customization (embroidery service)
+        // In the future, this could be based on design complexity, size, etc.
+        return BigDecimal.valueOf(10.00);
+    }
+
+
+    private boolean isSameItem(CartItem item1, CartItem item2) {
+        boolean sameProduct = item1.getProduct().getId().equals(item2.getProduct().getId());
+
+        boolean sameVariant = (item1.getProductVariant() == null && item2.getProductVariant() == null) ||
+                (item1.getProductVariant() != null && item2.getProductVariant() != null &&
+                        item1.getProductVariant().getId().equals(item2.getProductVariant().getId()));
+
+        boolean sameCustomization = (item1.getCustomization() == null && item2.getCustomization() == null) ||
+                (item1.getCustomization() != null && item2.getCustomization() != null &&
+                        item1.getCustomization().getId().equals(item2.getCustomization().getId()));
+
+        return sameProduct && sameVariant && sameCustomization;
+    }
+}

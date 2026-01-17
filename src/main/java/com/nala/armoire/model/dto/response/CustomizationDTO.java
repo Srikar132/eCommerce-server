@@ -15,9 +15,8 @@ import java.util.UUID;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CustomizationDTO {
-    private String customizationId;
+    private UUID id;
     private UUID userId;
-    private String sessionId;
     private UUID productId;
     private UUID variantId;
     private UUID designId;

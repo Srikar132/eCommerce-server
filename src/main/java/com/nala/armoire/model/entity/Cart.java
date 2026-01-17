@@ -9,6 +9,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +31,7 @@ public class Cart {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(name = "session_id", length = 255)
+    @Column(name = "session_id", length = 255, unique = true)
     private String sessionId;
 
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
@@ -95,11 +96,10 @@ public class Cart {
 
         this.taxAmount = taxableAmount
                 .multiply(BigDecimal.valueOf(0.10))
-                .setScale(2, BigDecimal.ROUND_HALF_UP);
+                .setScale(2, RoundingMode.HALF_UP);
 
         this.total = subtotal.subtract(safeDiscount).add(taxAmount);
     }
-
 
     public void clearItems() {
         items.clear();

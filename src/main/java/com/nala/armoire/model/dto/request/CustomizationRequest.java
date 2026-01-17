@@ -18,9 +18,9 @@ public class CustomizationRequest {
     /**
      * Optional: Existing customization ID for updates
      * If provided, the service will UPDATE the existing customization
-     * If null/blank, a NEW customization will be created
+     * If null, a NEW customization will be created
      */
-    private String customizationId;
+    private UUID id;
 
     /**
      * Required: Product ID being customized

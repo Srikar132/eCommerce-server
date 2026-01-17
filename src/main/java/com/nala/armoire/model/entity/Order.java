@@ -30,10 +30,32 @@ public class Order {
     @Column(name = "order_number", nullable = false, unique = true, length = 50)
     private String orderNumber;
 
-    @Column(length = 50)
+    // Order status using enum
+    @Column(nullable = false, length = 50)
+    @Enumerated(EnumType.STRING)
     @Builder.Default
-    private String status = "PENDING"; // PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED
+    private OrderStatus status = OrderStatus.PENDING;
 
+    // Payment status using enum
+    @Column(name = "payment_status", nullable = false, length = 50)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
+
+    // Razorpay fields
+    @Column(name = "razorpay_order_id", length = 100)
+    private String razorpayOrderId;
+
+    @Column(name = "razorpay_payment_id", length = 100)
+    private String razorpayPaymentId;
+
+    @Column(name = "razorpay_signature", length = 500)
+    private String razorpaySignature;
+
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod; // card, upi, netbanking
+
+    // Pricing
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;
 
@@ -52,12 +74,7 @@ public class Order {
     @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalAmount;
 
-    @Column(name = "payment_status", length = 50)
-    private String paymentStatus; // PENDING, PAID, FAILED, REFUNDED
-
-    @Column(name = "payment_method", length = 50)
-    private String paymentMethod;
-
+    // Addresses
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shipping_address_id")
     private Address shippingAddress;
@@ -65,6 +82,31 @@ public class Order {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "billing_address_id")
     private Address billingAddress;
+
+    // Tracking
+    @Column(name = "tracking_number", length = 100)
+    private String trackingNumber;
+
+    @Column(name = "carrier", length = 100)
+    private String carrier; // Delhivery, BlueDart, etc.
+
+    @Column(name = "estimated_delivery_date")
+    private LocalDateTime estimatedDeliveryDate;
+
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+
+    @Column(name = "cancellation_reason", length = 500)
+    private String cancellationReason;
+
+    @Column(name = "return_requested_at")
+    private LocalDateTime returnRequestedAt;
+
+    @Column(name = "return_reason", length = 500)
+    private String returnReason;
 
     @Column(columnDefinition = "TEXT")
     private String notes;
@@ -82,13 +124,12 @@ public class Order {
     @Builder.Default
     private List<OrderItem> orderItems = new ArrayList<>();
 
-    // Helper method to add order item
+    // Helper methods
     public void addOrderItem(OrderItem orderItem) {
         orderItems.add(orderItem);
         orderItem.setOrder(this);
     }
 
-    // Helper method to remove order item
     public void removeOrderItem(OrderItem orderItem) {
         orderItems.remove(orderItem);
         orderItem.setOrder(null);
@@ -102,5 +143,29 @@ public class Order {
                 .add(taxAmount)
                 .add(shippingCost)
                 .subtract(discountAmount);
+    }
+
+    /**
+     * Cancel order with reason
+     */
+    public void cancel(String reason) {
+        if (!status.canBeCancelled()) {
+            throw new IllegalStateException("Order cannot be cancelled in current status: " + status);
+        }
+        this.status = OrderStatus.CANCELLED;
+        this.cancelledAt = LocalDateTime.now();
+        this.cancellationReason = reason;
+    }
+
+    /**
+     * Request return
+     */
+    public void requestReturn(String reason) {
+        if (!status.canRequestReturn()) {
+            throw new IllegalStateException("Return cannot be requested in current status: " + status);
+        }
+        this.status = OrderStatus.RETURN_REQUESTED;
+        this.returnRequestedAt = LocalDateTime.now();
+        this.returnReason = reason;
     }
 }

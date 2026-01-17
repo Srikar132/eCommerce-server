@@ -43,6 +43,7 @@ public class Address {
     private String postalCode;
 
     @Column(name = "is_default")
+    @Builder.Default
     private Boolean isDefault = false;
 
 

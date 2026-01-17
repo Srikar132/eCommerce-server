@@ -1,6 +1,5 @@
 package com.nala.armoire.controller;
 
-import com.nala.armoire.model.dto.response.ApiResponse;
 import com.nala.armoire.model.dto.response.DesignCategoryDTO;
 import com.nala.armoire.model.dto.response.DesignListDTO;
 import com.nala.armoire.model.dto.response.PagedResponse;

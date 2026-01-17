@@ -200,11 +200,6 @@ public class ProductService {
 
     // CHANGED: Now collects images from all variants
     private ProductDTO mapToProductDTO(Product product) {
-        // Collect all images from all variants (flattened)
-        List<ProductImageDTO> images = product.getVariants().stream()
-                .flatMap(variant -> variant.getImages().stream())
-                .map(this::mapToProductImageDTO)
-                .collect(Collectors.toList());
 
         Double averageRating = reviewRepository.findAverageRatingByProductId(product.getId());
         Long reviewCount = reviewRepository.countByProductId(product.getId());
@@ -223,8 +218,6 @@ public class ProductService {
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .brandId(product.getBrand() != null ? product.getBrand().getId() : null)
                 .brandName(product.getBrand() != null ? product.getBrand().getName() : null)
-
-                // ✅ Variants instead of images
                 .variants(
                         product.getVariants().stream()
                                 .map(variant -> ProductVariantDTO.builder()

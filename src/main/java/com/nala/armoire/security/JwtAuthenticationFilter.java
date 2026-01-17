@@ -30,10 +30,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
 
-            String path = request.getServletPath();
-//            System.out.println("REQUEST PATH = " + request.getServletPath());
-
-
 
             String jwt = null;
             jwt = cookieUtil.extractTokenFromCookie(request, "accessToken");

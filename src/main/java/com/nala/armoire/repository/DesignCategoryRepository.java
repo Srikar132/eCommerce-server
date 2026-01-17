@@ -1,6 +1,5 @@
 package com.nala.armoire.repository;
 
-import com.nala.armoire.model.entity.Design;
 import com.nala.armoire.model.entity.DesignCategory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

@@ -13,7 +13,6 @@ import java.util.UUID;
 @Builder
 public class CustomizationSummary {
     private UUID id;
-    private String customizationId;
     private UUID variantId;
     private UUID designId;
     private String threadColorHex;

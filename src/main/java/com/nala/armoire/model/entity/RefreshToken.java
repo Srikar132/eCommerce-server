@@ -39,5 +39,6 @@ public class RefreshToken {
     private LocalDateTime updatedAt;
 
     @Column()
+    @Builder.Default
     private Boolean revoked = false;
 }

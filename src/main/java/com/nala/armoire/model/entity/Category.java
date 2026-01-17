@@ -2,7 +2,6 @@ package com.nala.armoire.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.GenericGenerator;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -38,9 +37,11 @@ public class Category {
     private String imageUrl;
 
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "display_order")
+    @Builder.Default
     private int displayOrder = 0;
 
     @Column(name = "created_at", updatable = false)

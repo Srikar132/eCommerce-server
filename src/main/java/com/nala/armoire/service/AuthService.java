@@ -1,6 +1,7 @@
 package com.nala.armoire.service;
 
 import com.nala.armoire.exception.BadRequestException;
+import com.nala.armoire.exception.ResourceNotFoundException;
 import com.nala.armoire.model.dto.request.*;
 import com.nala.armoire.exception.UnauthorizedException;
 import com.nala.armoire.model.dto.response.MessageResponse;
@@ -378,6 +379,24 @@ public class AuthService {
                 .success(true)
                 .build();
     }
+
+
+    public UserResponse getUserById(UUID userId) {
+    log.debug("Fetching user by ID: {}", userId);
+    
+    User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+    return UserResponse.builder()
+            .id(user.getId())
+            .email(user.getEmail())
+            .userName(user.getUserName())
+            .phone(user.getPhone())
+            .role(user.getRole())
+            .emailVerified(user.getEmailVerified())
+            .createdAt(user.getCreatedAt())
+            .build();
+}
 
     // Helper method to generate tokens and user response
     private TokenPair generateTokenPair(User user) {

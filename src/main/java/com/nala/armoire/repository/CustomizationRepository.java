@@ -4,7 +4,6 @@ import com.nala.armoire.model.entity.Customization;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -17,9 +16,6 @@ import java.util.UUID;
 @Repository
 public interface CustomizationRepository extends JpaRepository<Customization, UUID> {
 
-    // Find by customization ID
-    Optional<Customization> findByCustomizationId(String customizationId);
-
     // Find user's customizations for a specific product
     @Query("SELECT c FROM Customization c WHERE c.userId = :userId AND c.productId = :productId " +
             "ORDER BY c.updatedAt DESC")
@@ -30,19 +26,6 @@ public interface CustomizationRepository extends JpaRepository<Customization, UU
 
     // Find user's all customizations
     Page<Customization> findByUserIdOrderByUpdatedAtDesc(UUID userId, Pageable pageable);
-
-    // Find guest's customizations by session
-    @Query("SELECT c FROM Customization c WHERE c.sessionId = :sessionId AND c.userId IS NULL " +
-            "ORDER BY c.updatedAt DESC")
-    List<Customization> findBySessionId(@Param("sessionId") String sessionId);
-
-    // Find guest's customizations for a specific product
-    @Query("SELECT c FROM Customization c WHERE c.sessionId = :sessionId AND c.productId = :productId " +
-            "AND c.userId IS NULL ORDER BY c.updatedAt DESC")
-    List<Customization> findBySessionIdAndProductId(
-            @Param("sessionId") String sessionId,
-            @Param("productId") UUID productId
-    );
 
     Long countByUserId(UUID userId);
 
@@ -55,11 +38,5 @@ public interface CustomizationRepository extends JpaRepository<Customization, UU
 
     // Find recent customization
     Optional<Customization> findTopByUserIdAndProductIdOrderByUpdatedAtDesc(UUID userId, UUID productId);
-
-    // Delete old guest customizations (cleanup job)
-    @Modifying
-    @Query("DELETE FROM Customization c WHERE c.userId IS NULL " +
-            "AND c.createdAt < :threshold")
-    void deleteOldGuestCustomizations(@Param("threshold") LocalDateTime threshold);
 }
 
