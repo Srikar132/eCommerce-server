@@ -37,18 +37,16 @@ public class DesignSearchService {
      * 
      * @param categorySlug   Filter by design category slug
      * @param searchQuery    Full-text search query (searches name, description, tags)
-     * @param isPremium      Filter by premium status
      * @param pageable       Pagination and sorting
      * @return Paged response of designs
      */
     public PagedResponse<DesignListDTO> searchDesigns(
             String categorySlug,
             String searchQuery,
-            Boolean isPremium,
             Pageable pageable) {
         try {
-            log.info("Elasticsearch design search - categorySlug: {}, query: {}, isPremium: {}, page: {}", 
-                    categorySlug, searchQuery, isPremium, pageable.getPageNumber());
+            log.info("Elasticsearch design search - categorySlug: {}, query: {}, page: {}", 
+                    categorySlug, searchQuery, pageable.getPageNumber());
 
             // Build boolean query
             BoolQuery.Builder boolQuery = new BoolQuery.Builder();
@@ -62,13 +60,6 @@ public class DesignSearchService {
                 boolQuery.filter(f -> f.term(t -> t
                         .field("designCategorySlug")
                         .value(categorySlug)));
-            }
-
-            // Filter by premium status
-            if (isPremium != null) {
-                boolQuery.filter(f -> f.term(t -> t
-                        .field("isPremium")
-                        .value(isPremium)));
             }
 
             // Full-text search across multiple fields
@@ -154,7 +145,7 @@ public class DesignSearchService {
                 .name(doc.getName())
                 .slug(doc.getSlug())
                 .description(doc.getDescription())
-                .imageUrl(doc.getDesignImageUrl())
+                .designImageUrl(doc.getDesignImageUrl())
                 .thumbnailUrl(doc.getThumbnailUrl())
                 .category(DesignCategoryDTO.builder()
                         .id(java.util.UUID.fromString(doc.getDesignCategoryId()))
@@ -162,9 +153,8 @@ public class DesignSearchService {
                         .slug(doc.getDesignCategorySlug())
                         .build())
                 .tags(doc.getTags() != null ? doc.getTags() : new ArrayList<>())
+                .designPrice(doc.getDesignPrice())
                 .isActive(doc.getIsActive())
-                .isPremium(doc.getIsPremium())
-                .downloadCount(doc.getDownloadCount())
                 .createdAt(doc.getCreatedAt())
                 .updatedAt(doc.getUpdatedAt())
                 .build();
@@ -204,8 +194,8 @@ public class DesignSearchService {
         return switch (dtoField) {
             case "name" -> "name.keyword";
             case "createdAt" -> "createdAt";
-            case "downloadCount" -> "downloadCount";
             case "updatedAt" -> "updatedAt";
+            case "designPrice" -> "designPrice";
             default -> "createdAt";
         };
     }

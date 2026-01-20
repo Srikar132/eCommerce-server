@@ -15,7 +15,6 @@ public class DesignFilterDTO {
     private Long categoryId;
     private String searchTerm;
     private List<String> tags;
-    private Boolean isPremium;
     private List<String> productTypes;
 
 

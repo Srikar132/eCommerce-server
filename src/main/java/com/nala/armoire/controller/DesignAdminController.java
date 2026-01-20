@@ -40,4 +40,26 @@ public class DesignAdminController {
                     .body("Failed to sync designs: " + e.getMessage());
         }
     }
+
+    /**
+     * POST /api/v1/admin/designs/reindex
+     * Full reindex of all designs from PostgreSQL to Elasticsearch
+     * Use this after schema changes or when ES index needs to be rebuilt
+     */
+    @PostMapping("/reindex")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> reindexAllDesigns() {
+        log.info("Admin: Reindexing all designs to Elasticsearch");
+        
+        try {
+            designSyncService.fullReindex();
+            return ResponseEntity.ok("Successfully reindexed all designs to Elasticsearch");
+        } catch (Exception e) {
+            log.error("Failed to reindex designs", e);
+            return ResponseEntity.internalServerError()
+                    .body("Failed to reindex designs: " + e.getMessage());
+        }
+    }
+
+    
 }

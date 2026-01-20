@@ -1,6 +1,7 @@
 package com.nala.armoire.model.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,11 +21,16 @@ public class DesignDTO {
     private UUID categoryId;
     private String categoryName;
     private String name;
-    private String imageUrl;
+    private String slug;
+    private String description;
+    private String designImageUrl;
     private String thumbnailUrl;
     private List<String> tags;
+    private Double designPrice;
+    
+    @JsonProperty("isActive")
     private Boolean isActive;
-    private Boolean isPremium;
-    private Long downloadCount;
+    
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

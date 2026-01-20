@@ -50,9 +50,17 @@ public class Cart {
     @Builder.Default
     private BigDecimal taxAmount = BigDecimal.ZERO;
 
+    @Column(name = "shipping_cost", precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal shippingCost = BigDecimal.ZERO;
+
     @Column(name = "total", precision = 10, scale = 2)
     @Builder.Default
     private BigDecimal total = BigDecimal.ZERO;
+
+    @Transient
+    @Builder.Default
+    private BigDecimal gstRate = BigDecimal.valueOf(0.18); // Default 18%, overridden by service
 
     @Column(name = "is_active")
     @Builder.Default
@@ -94,11 +102,19 @@ public class Cart {
 
         BigDecimal taxableAmount = subtotal.subtract(safeDiscount);
 
+        // Use configured GST rate instead of hardcoded 10%
         this.taxAmount = taxableAmount
-                .multiply(BigDecimal.valueOf(0.10))
+                .multiply(gstRate != null ? gstRate : BigDecimal.valueOf(0.18))
                 .setScale(2, RoundingMode.HALF_UP);
 
-        this.total = subtotal.subtract(safeDiscount).add(taxAmount);
+        // Shipping cost is determined by service based on threshold
+        // Note: shippingCost should already be set by CartService before calling recalculateTotals()
+        BigDecimal safeShipping = shippingCost != null ? shippingCost : BigDecimal.ZERO;
+
+        this.total = subtotal
+                .subtract(safeDiscount)
+                .add(taxAmount)
+                .add(safeShipping);
     }
 
     public void clearItems() {

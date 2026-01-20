@@ -138,6 +138,9 @@ public class ProductDocument {
     @Field(type = FieldType.Boolean)
     private Boolean isActive;
 
+    @Field(type = FieldType.Boolean)
+    private Boolean isDraft;
+
     @Field(type = FieldType.Date)
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     @JsonSerialize(using = LocalDateTimeSerializer.class)

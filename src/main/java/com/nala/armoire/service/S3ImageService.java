@@ -76,16 +76,15 @@ public class S3ImageService {
                     bucketName, s3Key, file.getInputStream(), metadata)
                     .withCannedAcl(CannedAccessControlList.PublicRead));
 
-            // Generate URLs
+            // Generate URLs (prefer CDN if available)
             String publicUrl = generatePublicUrl(s3Key);
-            String cdnUrl = cloudFrontDomain.isEmpty() ? null : generateCdnUrl(s3Key);
+            String imageUrl = cloudFrontDomain.isEmpty() ? publicUrl : generateCdnUrl(s3Key);
 
             // Save to database
             ImageAsset imageAsset = ImageAsset.builder()
                     .fileName(originalFilename)
                     .s3Key(s3Key)
-                    .s3Url(publicUrl)
-                    .cdnUrl(cdnUrl)
+                    .imageUrl(imageUrl)
                     .fileSize(file.getSize())
                     .mimeType(file.getContentType())
                     .dimensions(dimensions)
@@ -98,8 +97,7 @@ public class S3ImageService {
             return ImageUploadResponse.builder()
                     .id(imageAsset.getId())
                     .fileName(originalFilename)
-                    .s3Url(publicUrl)
-                    .cdnUrl(cdnUrl)
+                    .imageUrl(imageUrl)
                     .fileSize(file.getSize())
                     .dimensions(dimensions)
                     .build();
@@ -138,15 +136,15 @@ public class S3ImageService {
             amazonS3.putObject(
                     new PutObjectRequest(bucketName, s3Key, file.getInputStream(), metadata));
 
+            // Generate URL (prefer CDN if available)
             String publicUrl = generatePublicUrl(s3Key);
-            String cdnUrl = cloudFrontDomain.isBlank() ? null : generateCdnUrl(s3Key);
+            String imageUrl = cloudFrontDomain.isBlank() ? publicUrl : generateCdnUrl(s3Key);
 
             log.info("Customization preview uploaded: {}", s3Key);
 
             return ImageUploadResponse.builder()
                     .fileName(fileName)
-                    .s3Url(publicUrl)
-                    .cdnUrl(cdnUrl)
+                    .imageUrl(imageUrl)
                     .fileSize(file.getSize())
                     .build();
 

@@ -1,6 +1,5 @@
 package com.nala.armoire.model.dto.request;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -29,6 +28,6 @@ public class AddToCartRequest {
     @Max(value = 100, message = "Quantity cannot exceed 100")
     private Integer quantity;
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    private String customizationSummary;
+    
+    private String additionalNotes;
 }

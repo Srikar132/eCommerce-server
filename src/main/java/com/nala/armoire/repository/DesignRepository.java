@@ -39,12 +39,10 @@ public interface DesignRepository extends JpaRepository<Design, UUID> {
     @Query("SELECT d FROM Design d WHERE d.isActive = true " +
             "AND (:categoryId IS NULL OR d.category.id = :categoryId) " +
             "AND (:searchTerm IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
-            "OR LOWER(d.tags) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
-            "AND (:isPremium IS NULL OR d.isPremium = :isPremium)")
+            "OR LOWER(d.tags) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
     Page<Design> findWithFilters(
             @Param("categoryId") Long categoryId,
             @Param("searchTerm") String searchTerm,
-            @Param("isPremium") Boolean isPremium,
             Pageable pageable
     );
 

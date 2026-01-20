@@ -16,6 +16,10 @@ public class ProductSpecification {
         return (root, query, cb) -> cb.isTrue(root.get("isActive"));
     }
 
+    public static Specification<Product> isNotDraft() {
+        return (root, query, cb) -> cb.isFalse(root.get("isDraft"));
+    }
+
     /**
      * Filter products by category slugs (OR logic)
      * Example: category=t-shirts,jeans -> returns products in t-shirts OR jeans

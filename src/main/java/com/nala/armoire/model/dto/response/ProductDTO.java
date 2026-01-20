@@ -1,5 +1,6 @@
 package com.nala.armoire.model.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,7 +22,10 @@ public class ProductDTO {
     private String description;
     private BigDecimal basePrice;
     private String sku;
+    
+    @JsonProperty("isCustomizable")
     private Boolean isCustomizable;
+    
     private String material;
     private String careInstructions;
     private UUID categoryId;
@@ -31,7 +35,13 @@ public class ProductDTO {
     private List<ProductVariantDTO> variants;
     private Double averageRating;
     private Long reviewCount;
+    
+    @JsonProperty("isActive")
     private Boolean isActive;
+    
+    @JsonProperty("isDraft")
+    private Boolean isDraft;
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

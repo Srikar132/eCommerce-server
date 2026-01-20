@@ -39,8 +39,6 @@ public class SyncLocalCartRequest {
         @NotNull(message = "Quantity is required")
         private Integer quantity;
         
-        private String customizationSummary;
-        
         // Local customization data (if not saved to backend yet)
         private LocalCustomizationData customizationData;
     }
@@ -54,6 +52,6 @@ public class SyncLocalCartRequest {
         private java.util.UUID variantId;
         private String threadColorHex;
         private String previewImageBase64; // Base64 encoded preview image
-        private String designPositionJson; // JSON string of design position/transform
+        private String additionalNotes;
     }
 }

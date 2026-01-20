@@ -48,7 +48,7 @@ public class BrandService {
         Brand brand = brandRepository.findBySlugAndIsActiveTrue(brandSlug)
                 .orElseThrow(() -> new ResourceNotFoundException("Brand Not Found"));
 
-        Page<Product> products = productRepository.findByBrandIdAndIsActiveTrue(brand.getId(), pageable);
+        Page<Product> products = productRepository.findByBrandIdAndIsActiveTrueAndIsDraftFalse(brand.getId(), pageable);
 
         return products.map(product -> {
             Double averageRating = reviewRepository.findAverageRatingByProductId(product.getId());
@@ -70,6 +70,7 @@ public class BrandService {
                     .averageRating(averageRating)
                     .reviewCount(reviewCount)
                     .isActive(product.getIsActive())
+                    .isDraft(product.getIsDraft())
                     .createdAt(product.getCreatedAt())
                     .build();
         });

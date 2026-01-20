@@ -109,7 +109,7 @@ public class DesignService {
     public Page<DesignListDTO> searchDesigns(String searchTerm, Integer page, Integer size) {
         log.info("Searching designs with term: {}", searchTerm);
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "downloadCount"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Design> designs = designRepository.searchDesigns(searchTerm, pageable);
 
         return designs.map(this::convertToDesignListDto);
@@ -131,7 +131,6 @@ public class DesignService {
         Page<Design> designs = designRepository.findWithFilters(
                 filter.getCategoryId(),
                 filter.getSearchTerm(),
-                filter.getIsPremium(),
                 pageable);
 
         return designs.map(this::convertToDesignListDto);
@@ -165,13 +164,15 @@ public class DesignService {
                 .categoryId(design.getCategory().getId())
                 .categoryName(design.getCategory().getName())
                 .name(design.getName())
-                .imageUrl(design.getDesignImageUrl())
+                .slug(design.getSlug())
+                .description(design.getDescription())
+                .designImageUrl(design.getDesignImageUrl())
                 .thumbnailUrl(design.getThumbnailUrl())
                 .tags(parseTagsFromString(design.getTags()))
+                .designPrice(design.getDesignPrice())
                 .isActive(design.getIsActive())
-                .isPremium(design.getIsPremium())
-                .downloadCount(design.getDownloadCount())
                 .createdAt(design.getCreatedAt())
+                .updatedAt(design.getUpdatedAt())
                 .build();
     }
 
@@ -181,13 +182,12 @@ public class DesignService {
                 .name(design.getName())
                 .slug(design.getSlug())
                 .description(design.getDescription())
-                .imageUrl(design.getDesignImageUrl()) // Map designImageUrl -> imageUrl
+                .designImageUrl(design.getDesignImageUrl())
                 .thumbnailUrl(design.getThumbnailUrl())
                 .category(convertToCategoryDTO(design.getCategory()))
                 .tags(parseTagsFromString(design.getTags()))
+                .designPrice(design.getDesignPrice())
                 .isActive(design.getIsActive())
-                .isPremium(design.getIsPremium())
-                .downloadCount(design.getDownloadCount())
                 .createdAt(design.getCreatedAt())
                 .updatedAt(design.getUpdatedAt())
                 .build();

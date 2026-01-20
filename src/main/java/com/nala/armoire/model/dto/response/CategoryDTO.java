@@ -1,6 +1,7 @@
 package com.nala.armoire.model.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,7 +26,10 @@ public class CategoryDTO {
     private Integer displayOrder;
     private List<CategoryDTO> subCategories;
     private String fullPath;
+    
+    @JsonProperty("isActive")
     private Boolean isActive;
+    
     private LocalDateTime createdAt;
     private Long productCount;
 }

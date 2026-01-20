@@ -1,5 +1,6 @@
 package com.nala.armoire.model.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,6 +21,9 @@ public class AddressDTO {
     private String state;
     private String postalCode;
     private String country;
+    
+    @JsonProperty("isDefault")
     private boolean isDefault;
+    
     private LocalDateTime createdAt;
 }

@@ -24,6 +24,7 @@ public class CartResponse {
     private BigDecimal subtotal;
     private BigDecimal discountAmount;
     private BigDecimal taxAmount;
+    private BigDecimal shippingCost;
     private BigDecimal total;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

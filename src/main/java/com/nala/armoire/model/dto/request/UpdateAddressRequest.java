@@ -1,5 +1,6 @@
 package com.nala.armoire.model.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -24,5 +25,6 @@ public class UpdateAddressRequest {
     @Size(max = 100, message = "Country name too long")
     private String country;
 
+    @JsonProperty("isDefault")
     private Boolean isDefault;
 }

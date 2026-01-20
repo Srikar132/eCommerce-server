@@ -1,28 +1,25 @@
 package com.nala.armoire.model.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Popular Product DTO
+ * Product popularity metrics for dashboard
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BrandDTO {
+public class PopularProductDTO {
 
     private UUID id;
     private String name;
     private String slug;
-    private String description;
-    private String logoUrl;
-    
-    @JsonProperty("isActive")
-    private Boolean isActive;
-    
-    private LocalDateTime createdAt;
+    private Long reviewCount;
+    private Double averageRating;
 }

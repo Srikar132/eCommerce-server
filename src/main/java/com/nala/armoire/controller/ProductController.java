@@ -6,7 +6,6 @@ import com.nala.armoire.model.dto.response.*;
 import com.nala.armoire.security.UserPrincipal;
 import com.nala.armoire.service.ProductSearchService;
 import com.nala.armoire.service.ProductService;
-import com.nala.armoire.service.ProductSyncService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,13 +29,8 @@ public class ProductController {
 
     private final ProductService productService;
     private final ProductSearchService productSearchService;
-    private final ProductSyncService productSyncService;
 
-    @PostMapping("/sync-products")
-    public ResponseEntity<String> syncAllProducts() {
-        productSyncService.syncAllProducts();
-        return ResponseEntity.ok("Synced all products to Elasticsearch");
-    }
+
 
     /**
      * GET /api/v1/products - Search & Filter Products (Elasticsearch)

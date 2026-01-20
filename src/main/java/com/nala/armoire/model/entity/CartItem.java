@@ -49,16 +49,14 @@ public class CartItem {
     @Builder.Default  // *** ADD THIS ***
     private BigDecimal unitPrice = BigDecimal.ZERO;
 
-    @Column(name = "customization_price", precision = 10, scale = 2)
+    @Column(name = "design_price", precision = 10, scale = 2)
     @Builder.Default
-    private BigDecimal customizationPrice = BigDecimal.ZERO;
+    private BigDecimal designPrice = BigDecimal.ZERO;
 
     @Column(name = "item_total", precision = 10, scale = 2)
     @Builder.Default
     private BigDecimal itemTotal = BigDecimal.ZERO;
 
-    @Column(name = "customization_summary", columnDefinition = "TEXT")
-    private String customizationSummary;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false, nullable = false)
@@ -72,7 +70,7 @@ public class CartItem {
     @PreUpdate
     public void calculateItemTotal() {
         BigDecimal basePrice = unitPrice != null ? unitPrice : BigDecimal.ZERO;
-        BigDecimal customPrice = customizationPrice != null ? customizationPrice : BigDecimal.ZERO;
+        BigDecimal customPrice = designPrice != null ? designPrice : BigDecimal.ZERO;
         int qty = quantity != null ? quantity : 1;  // Also handle null quantity
         BigDecimal totalPrice = basePrice.add(customPrice);
         this.itemTotal = totalPrice.multiply(BigDecimal.valueOf(qty));

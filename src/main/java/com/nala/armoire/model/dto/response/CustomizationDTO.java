@@ -22,7 +22,7 @@ public class CustomizationDTO {
     private UUID designId;
     private String threadColorHex;
     private String previewImageUrl;
-    private Boolean isCompleted;
+    private String additionalNotes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

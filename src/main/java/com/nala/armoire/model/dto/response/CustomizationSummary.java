@@ -17,4 +17,5 @@ public class CustomizationSummary {
     private UUID designId;
     private String threadColorHex;
     private String previewImageUrl;
+    private String additionalNotes;
 }

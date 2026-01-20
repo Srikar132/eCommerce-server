@@ -32,27 +32,25 @@ public class DesignController {
      * Supports:
      * - Full-text search (name, description, tags)
      * - Category filtering
-     * - Premium filtering
-     * - Sorting (name, createdAt, downloadCount)
+     * - Sorting (name, createdAt, designPrice)
      * - Pagination
      * 
      * Examples:
      * - GET /api/v1/designs?page=0&size=20&sortBy=createdAt&sortDir=DESC
-     * - GET /api/v1/designs?q=floral&categorySlug=vintage&isPremium=false
-     * - GET /api/v1/designs?q=summer&sortBy=downloadCount&sortDir=DESC
+     * - GET /api/v1/designs?q=floral&categorySlug=vintage
+     * - GET /api/v1/designs?q=summer&sortBy=designPrice&sortDir=ASC
      */
     @GetMapping
     public ResponseEntity<PagedResponse<DesignListDTO>> searchDesigns(
             @RequestParam(required = false) String categorySlug,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false) Boolean isPremium,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "20") Integer size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDir) {
 
-        log.info("GET /api/v1/designs - categorySlug: {}, q: {}, isPremium: {}, page: {}, size: {}", 
-                categorySlug, q, isPremium, page, size);
+        log.info("GET /api/v1/designs - categorySlug: {}, q: {}, page: {}, size: {}", 
+                categorySlug, q, page, size);
 
         // Build sort
         Sort.Direction direction = "ASC".equalsIgnoreCase(sortDir) 
@@ -62,7 +60,7 @@ public class DesignController {
 
         // Search using Elasticsearch
         PagedResponse<DesignListDTO> response = designSearchService.searchDesigns(
-                categorySlug, q, isPremium, pageable);
+                categorySlug, q, pageable);
 
         return ResponseEntity.ok(
                 response

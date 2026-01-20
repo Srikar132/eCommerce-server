@@ -1,5 +1,6 @@
 package com.nala.armoire.model.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,6 +23,9 @@ public class ProductVariantDTO {
     private Integer stockQuantity;
     private BigDecimal additionalPrice;
     private String sku;
+    
+    @JsonProperty("isActive")
     private Boolean isActive;
+    
     private List<ProductImageDTO> images; // Images here!
 }

@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,13 +27,6 @@ public interface CustomizationRepository extends JpaRepository<Customization, UU
     Page<Customization> findByUserIdOrderByUpdatedAtDesc(UUID userId, Pageable pageable);
 
     Long countByUserId(UUID userId);
-
-    // Find incomplete customizations (for cleanup)
-    @Query("SELECT c FROM Customization c WHERE c.isCompleted = false " +
-            "AND c.createdAt < :threshold")
-    List<Customization> findIncompleteCustomizationsOlderThan(
-            @Param("threshold") LocalDateTime threshold
-    );
 
     // Find recent customization
     Optional<Customization> findTopByUserIdAndProductIdOrderByUpdatedAtDesc(UUID userId, UUID productId);

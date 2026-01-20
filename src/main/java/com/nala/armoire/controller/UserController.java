@@ -12,6 +12,7 @@ import com.nala.armoire.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,8 +40,9 @@ public class UserController {
     }
 
     @GetMapping("/addresses")
-    ResponseEntity<List<AddressDTO>> getAddresses(@CurrentUser UserPrincipal currentUser) {
+    ResponseEntity<List<AddressDTO>> getAddresses(@AuthenticationPrincipal UserPrincipal currentUser) {
         List<AddressDTO> userAddresses = addressService.getUserAddresses(currentUser.getId());
+        
         return ResponseEntity.ok(userAddresses);
     }
 

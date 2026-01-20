@@ -17,11 +17,9 @@ public class DesignListDTO {
     private UUID id;
     private String name;
     private String slug;
-
-
     private String description;
     
-    private String imageUrl;      
+    private String designImageUrl;      
     private String thumbnailUrl;
     
     // Design category info (e.g., "Animals", "Nature", "Abstract")
@@ -29,13 +27,9 @@ public class DesignListDTO {
     
     private List<String> tags;
     
+    private Double designPrice;
     
     private Boolean isActive;
-    private Boolean isPremium;
-    
-    // Pricing and metrics
-    private Double price;              // Additional price for using this design (0.0 if free)
-    private Long downloadCount;
     
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

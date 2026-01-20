@@ -36,15 +36,16 @@ public class Customization {
     @Column(nullable = false, length = 7)
     private String threadColorHex;
 
-    @Column( length = 500)  // S3 URLs are typically under 500 characters
+    @Column(length = 500)
     private String previewImageUrl;
 
-    @Builder.Default
-    private Boolean isCompleted = false;
+    @Column(length = 500)
+    private String additionalNotes;
 
     @CreationTimestamp
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+    
 }

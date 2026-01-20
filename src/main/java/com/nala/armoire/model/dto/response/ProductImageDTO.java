@@ -1,5 +1,6 @@
 package com.nala.armoire.model.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nala.armoire.model.entity.ImageRole;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,6 +19,9 @@ public class ProductImageDTO {
     private String imageUrl;
     private String altText;
     private Integer displayOrder;
+    
+    @JsonProperty("isPrimary")
     private Boolean isPrimary;
+    
     private ImageRole imageRole;
 }

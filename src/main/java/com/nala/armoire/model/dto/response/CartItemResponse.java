@@ -22,8 +22,6 @@ public class CartItemResponse {
     private CustomizationSummary customization;
     private Integer quantity;
     private BigDecimal unitPrice;
-    private BigDecimal customizationPrice;
     private BigDecimal itemTotal;
-    private String customizationSummary;
     private LocalDateTime addedAt;
 }

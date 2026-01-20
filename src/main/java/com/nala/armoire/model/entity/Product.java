@@ -61,6 +61,10 @@ public class Product {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "is_draft")
+    @Builder.Default
+    private Boolean isDraft = false;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

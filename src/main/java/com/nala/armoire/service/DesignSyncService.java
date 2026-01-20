@@ -105,6 +105,38 @@ public class DesignSyncService {
     }
 
     /**
+     * Full reindex of all designs from PostgreSQL to Elasticsearch
+     * Clears the Elasticsearch index and rebuilds from scratch
+     * Use this after schema changes or when the index needs to be rebuilt
+     */
+    @Transactional(readOnly = true)
+    public void fullReindex() {
+        log.info("Starting full reindex of all designs - clearing and rebuilding Elasticsearch index");
+        
+        try {
+            // Clear all existing documents in Elasticsearch
+            designElasticsearchRepository.deleteAll();
+            log.info("Cleared existing designs from Elasticsearch");
+
+            // Fetch all designs from PostgreSQL
+            List<Design> allDesigns = designRepository.findAll();
+            log.info("Found {} designs in PostgreSQL for reindexing", allDesigns.size());
+
+            // Convert to documents and save to Elasticsearch
+            List<DesignDocument> documents = allDesigns.stream()
+                    .map(this::mapToDocument)
+                    .collect(Collectors.toList());
+
+            designElasticsearchRepository.saveAll(documents);
+            
+            log.info("Successfully reindexed {} designs to Elasticsearch", documents.size());
+        } catch (Exception e) {
+            log.error("Failed to reindex designs to Elasticsearch", e);
+            throw new RuntimeException("Full design reindex failed", e);
+        }
+    }
+
+    /**
      * Map Design entity to DesignDocument (Elasticsearch)
      */
     private DesignDocument mapToDocument(Design design) {
@@ -122,9 +154,8 @@ public class DesignSyncService {
                 .designCategoryName(design.getCategory().getName())
                 .tags(tagsList)
                 .tagsText(design.getTags()) // Store original comma-separated tags for text search
+                .designPrice(design.getDesignPrice())
                 .isActive(design.getIsActive())
-                .isPremium(design.getIsPremium())
-                .downloadCount(design.getDownloadCount())
                 .createdAt(design.getCreatedAt())
                 .updatedAt(design.getUpdatedAt())
                 .build();

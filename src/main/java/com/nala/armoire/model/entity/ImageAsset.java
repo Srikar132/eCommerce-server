@@ -34,10 +34,7 @@ public class ImageAsset {
     private String s3Key; // Full S3 path: assets/products/filename.jpg
 
     @Column(nullable = false, length = 500)
-    private String s3Url; // Public URL to access image
-
-    @Column(length = 500)
-    private String cdnUrl; // CloudFront URL (if CDN enabled)
+    private String imageUrl; // Public URL to access image (CDN if available, otherwise S3)
 
     @Column(nullable = false)
     private Long fileSize; // Size in bytes

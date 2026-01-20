@@ -2,6 +2,7 @@ package com.nala.armoire.model.dto.request;
 
 // AddAddressRequest.java
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -33,5 +34,6 @@ public class AddAddressRequest {
     @Size(max = 100, message = "Country name too long")
     private String country;
 
+    @JsonProperty("isDefault")
     private boolean isDefault;
 }

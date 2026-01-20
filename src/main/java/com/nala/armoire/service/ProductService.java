@@ -47,7 +47,8 @@ public class ProductService {
             int page,
             int limit) {
 
-        Specification<Product> spec = (root, query, cb) -> cb.conjunction();
+        Specification<Product> spec = ProductSpecification.isActive()
+                .and(ProductSpecification.isNotDraft());
 
         if (categorySlugs != null && !categorySlugs.isEmpty()) {
             spec = spec.and(ProductSpecification.hasCategorySlugs(categorySlugs));
@@ -140,7 +141,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductDTO getProductBySlug(String slug) {
-        Product product = productRepository.findBySlugAndIsActiveTrue(slug)
+        Product product = productRepository.findBySlugAndIsActiveTrueAndIsDraftFalse(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product Not found"));
 
         return mapToProductDTO(product);
@@ -148,7 +149,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductVariantDTO> getProductVariants(String slug) {
-        Product product = productRepository.findBySlugAndIsActiveTrue(slug)
+        Product product = productRepository.findBySlugAndIsActiveTrueAndIsDraftFalse(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product Not found"));
 
         List<ProductVariant> variants = productVariantRepository.findByProductIdAndIsActiveTrue(product.getId());
@@ -159,7 +160,7 @@ public class ProductService {
     }
 
     public Page<ReviewDTO> getProductReviews(String slug, Pageable pageable) {
-        Product product = productRepository.findBySlugAndIsActiveTrue(slug)
+        Product product = productRepository.findBySlugAndIsActiveTrueAndIsDraftFalse(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
         Page<Review> reviews = reviewRepository.findByProductId(product.getId(), pageable);
@@ -169,7 +170,7 @@ public class ProductService {
 
     @Transactional
     public ReviewDTO addProductReview(String slug, UUID userId, AddReviewRequest request) {
-        Product product = productRepository.findBySlugAndIsActiveTrue(slug)
+        Product product = productRepository.findBySlugAndIsActiveTrueAndIsDraftFalse(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
         User user = userRepository.findById(userId)
@@ -248,6 +249,7 @@ public class ProductService {
                 .averageRating(averageRating)
                 .reviewCount(reviewCount)
                 .isActive(product.getIsActive())
+                .isDraft(product.getIsDraft())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();

@@ -1,5 +1,6 @@
 package com.nala.armoire.model.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,6 +22,9 @@ public class ReviewDTO {
     private Integer rating;
     private String title;
     private String comment;
+    
+    @JsonProperty("isVerifiedPurchase")
     private Boolean isVerifiedPurchase;
+    
     private LocalDateTime createdAt;
 }

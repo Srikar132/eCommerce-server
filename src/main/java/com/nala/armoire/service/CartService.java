@@ -54,6 +54,7 @@ public class CartService {
     private final UserRepository userRepository;
     private final CartMapper cartMapper;
     private final S3ImageService s3ImageService;
+    private final PricingConfigService pricingConfigService;
     
     private final ConcurrentHashMap<UUID, Object> userLocks = new ConcurrentHashMap<>();
 
@@ -173,12 +174,26 @@ public class CartService {
 
     // ==================== CART MANAGEMENT ====================
 
-    private Cart getOrCreateCart(User user) {
+ private Cart getOrCreateCart(User user) {
         Object lock = userLocks.computeIfAbsent(user.getId(), k -> new Object());
         
         synchronized (lock) {
-            return cartRepository.findByUserWithItems(user)
+            Cart cart = cartRepository.findByUserWithItems(user)
                     .orElseGet(() -> createNewCart(user));
+            
+            // Apply pricing configuration
+            cart.setGstRate(pricingConfigService.getGstRate());
+            
+            // Calculate subtotal first to determine shipping cost
+            BigDecimal subtotal = cart.getItems().stream()
+                    .map(item -> item.getItemTotal() != null ? item.getItemTotal() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            // Set shipping cost based on subtotal and threshold
+            cart.setShippingCost(pricingConfigService.getShippingCost(subtotal));
+            cart.recalculateTotals();
+            
+            return cart;
         }
     }
 
@@ -233,7 +248,7 @@ public class CartService {
         } else {
             // Create new item
             BigDecimal unitPrice = calculateUnitPrice(product, variant);
-            BigDecimal customizationPrice = customization != null ? CUSTOMIZATION_BASE_PRICE : BigDecimal.ZERO;
+            BigDecimal designPrice = customization != null ? CUSTOMIZATION_BASE_PRICE : BigDecimal.ZERO;
             
             CartItem cartItem = CartItem.builder()
                     .product(product)
@@ -241,8 +256,7 @@ public class CartService {
                     .customization(customization)
                     .quantity(request.getQuantity())
                     .unitPrice(unitPrice)
-                    .customizationPrice(customizationPrice)
-                    .customizationSummary(request.getCustomizationSummary())
+                    .designPrice(designPrice)
                     .build();
             
             cartItem.calculateItemTotal();
@@ -265,7 +279,7 @@ public class CartService {
                                       Product product, ProductVariant variant, 
                                       Customization customization) {
         BigDecimal unitPrice = calculateUnitPrice(product, variant);
-        BigDecimal customizationPrice = customization != null ? CUSTOMIZATION_BASE_PRICE : BigDecimal.ZERO;
+        BigDecimal designPrice = customization != null ? CUSTOMIZATION_BASE_PRICE : BigDecimal.ZERO;
         
         CartItem cartItem = CartItem.builder()
                 .product(product)
@@ -273,8 +287,7 @@ public class CartService {
                 .customization(customization)
                 .quantity(request.getQuantity())
                 .unitPrice(unitPrice)
-                .customizationPrice(customizationPrice)
-                .customizationSummary(request.getCustomizationSummary())
+                .designPrice(designPrice)
                 .build();
         
         cartItem.calculateItemTotal();
@@ -343,7 +356,6 @@ public class CartService {
                 .variantId(localItem.getProductVariantId())
                 .designId(data.getDesignId())
                 .threadColorHex(data.getThreadColorHex())
-                .isCompleted(true)
                 .build();
         
         Customization saved = customizationRepository.save(customization);
@@ -363,13 +375,11 @@ public class CartService {
             var uploadResponse = s3ImageService.uploadCustomizationPreview(
                     imageFile, user.getId(), customization.getId());
             
-            String imageUrl = Optional.ofNullable(uploadResponse.getCdnUrl())
-                    .orElse(uploadResponse.getS3Url());
-            
-            customization.setPreviewImageUrl(imageUrl);
+            customization.setPreviewImageUrl(uploadResponse.getImageUrl());
             customizationRepository.save(customization);
             
-            log.info("Preview uploaded - customizationId: {}, url: {}", customization.getId(), imageUrl);
+            log.info("Preview uploaded - customizationId: {}, url: {}", 
+                    customization.getId(), uploadResponse.getImageUrl());
             
         } catch (Exception e) {
             log.error("Failed to upload preview - customizationId: {}", customization.getId(), e);
@@ -507,12 +517,17 @@ public class CartService {
 
     private AddToCartRequest buildAddRequest(SyncLocalCartRequest.LocalCartItemRequest localItem, 
                                             UUID customizationId) {
+        String additionalNotes = null;
+        if (localItem.getCustomizationData() != null) {
+            additionalNotes = localItem.getCustomizationData().getAdditionalNotes();
+        }
+        
         return AddToCartRequest.builder()
                 .productId(localItem.getProductId())
                 .productVariantId(localItem.getProductVariantId())
                 .customizationId(customizationId)
                 .quantity(localItem.getQuantity())
-                .customizationSummary(localItem.getCustomizationSummary())
+                .additionalNotes(additionalNotes)
                 .build();
     }
 

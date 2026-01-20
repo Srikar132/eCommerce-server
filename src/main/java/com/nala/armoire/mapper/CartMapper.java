@@ -21,6 +21,7 @@ public class CartMapper {
                 .subtotal(cart.getSubtotal())
                 .discountAmount(cart.getDiscountAmount())
                 .taxAmount(cart.getTaxAmount())
+                .shippingCost(cart.getShippingCost())
                 .total(cart.getTotal())
                 .createdAt(cart.getCreatedAt())
                 .updatedAt(cart.getUpdatedAt())
@@ -37,9 +38,7 @@ public class CartMapper {
                 .customization(toCustomizationSummary(item.getCustomization()))
                 .quantity(item.getQuantity())
                 .unitPrice(item.getUnitPrice())
-                .customizationPrice(item.getCustomizationPrice())
                 .itemTotal(item.getItemTotal())
-                .customizationSummary(item.getCustomizationSummary())
                 .addedAt(item.getCreatedAt())
                 .build();
     }
@@ -81,6 +80,7 @@ public class CartMapper {
                 .designId(customization.getDesignId())
                 .threadColorHex(customization.getThreadColorHex())
                 .previewImageUrl(customization.getPreviewImageUrl())
+                .additionalNotes(customization.getAdditionalNotes())
                 .build();
     }
 
@@ -93,6 +93,7 @@ public class CartMapper {
                 .total(cart.getTotal())
                 .discountAmount(cart.getDiscountAmount())
                 .taxAmount(cart.getTaxAmount())
+                .shippingCost(cart.getShippingCost())
                 .build();
     }
 }

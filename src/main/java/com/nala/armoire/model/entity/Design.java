@@ -44,17 +44,12 @@ public class Design {
     @Column(length = 500)
     private String tags;
 
+    @Column(name = "design_price", nullable = false)
+    private Double designPrice;
+
     @Column(name = "is_active")
     @Builder.Default
     private Boolean isActive = true;
-
-    @Column(name = "is_premium")
-    @Builder.Default
-    private Boolean isPremium = false;
-
-    @Column(name = "download_count")
-    @Builder.Default
-    private Long downloadCount = 0L;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false, nullable = false)

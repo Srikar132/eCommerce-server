@@ -16,6 +16,7 @@ public class CartSummaryResponse {
     private BigDecimal subtotal;
     private BigDecimal discountAmount;
     private BigDecimal taxAmount;
+    private BigDecimal shippingCost;
     private BigDecimal total;
     private String couponCode;
 }

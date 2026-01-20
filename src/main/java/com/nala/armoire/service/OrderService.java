@@ -39,6 +39,7 @@ public class OrderService {
     private final RazorpayService razorpayService;
     private final EmailService emailService;
     private final ObjectMapper objectMapper;
+    private final PricingConfigService pricingConfigService;
 
     @Value("${razorpay.key.id}")
     private String razorpayKeyId;
@@ -96,7 +97,7 @@ public class OrderService {
                     .razorpayOrderId(razorpayOrderId)
                     .subtotal(cart.getSubtotal())
                     .taxAmount(cart.getTaxAmount())
-                    .shippingCost(BigDecimal.ZERO) // TODO: Calculate shipping
+                    .shippingCost(pricingConfigService.getShippingCost(cart.getSubtotal()))
                     .discountAmount(cart.getDiscountAmount())
                     .totalAmount(cart.getTotal())
                     .shippingAddress(shippingAddress)
@@ -111,8 +112,8 @@ public class OrderService {
                         .productVariant(cartItem.getProductVariant())
                         .quantity(cartItem.getQuantity())
                         .unitPrice(cartItem.getUnitPrice().add(
-                                cartItem.getCustomizationPrice() != null
-                                        ? cartItem.getCustomizationPrice()
+                                cartItem.getDesignPrice() != null
+                                        ? cartItem.getDesignPrice()
                                         : BigDecimal.ZERO))
                         .hasCustomization(cartItem.getCustomization() != null)
                         .customizationSnapshot(createCustomizationSnapshot(cartItem))

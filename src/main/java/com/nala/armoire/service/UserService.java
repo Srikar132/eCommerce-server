@@ -2,7 +2,6 @@ package com.nala.armoire.service;
 
 import com.nala.armoire.exception.ResourceNotFoundException;
 import com.nala.armoire.model.dto.request.UpdateProfileRequest;
-import com.nala.armoire.model.dto.response.AddressDTO;
 import com.nala.armoire.model.dto.response.UserProfileDTO;
 import com.nala.armoire.model.entity.User;
 import com.nala.armoire.repository.UserRepository;
@@ -11,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -20,7 +18,6 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final AddressService addressService;
 
     @Transactional(readOnly = true)
     public UserProfileDTO getUserProfile(UUID userId) {
@@ -28,9 +25,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User Not Found"));
 
-        List<AddressDTO> userAddresses = addressService.getUserAddresses(user.getId());
-
-        return mapToProfileDTO(user , userAddresses);
+        return mapToProfileDTO(user);
     }
 
     @Transactional()
@@ -43,16 +38,12 @@ public class UserService {
         User updatedUser = userRepository.save(user);
         log.info("User profile updated successfully for userId: {}", userId);
 
-        List<AddressDTO> userAddresses = addressService.getUserAddresses(user.getId());
-
-
-        return mapToProfileDTO(updatedUser , userAddresses);
+        return mapToProfileDTO(updatedUser);
     }
 
 
 
-
-    private UserProfileDTO mapToProfileDTO(User user ,  List<AddressDTO> userAddresses) {
+    private UserProfileDTO mapToProfileDTO(User user ) {
         return UserProfileDTO.builder()
                 .id(String.valueOf(user.getId()))
                 .email(user.getEmail())
@@ -60,7 +51,6 @@ public class UserService {
                 .phone(user.getPhone())
                 .emailVerified(user.getEmailVerified())
                 .createdAt(user.getCreatedAt())
-                .addresses(userAddresses)
                 .build();
     }
 

@@ -59,9 +59,12 @@ public class CustomizationController {
             
                 file, userId, tempCustomizationId);
 
-        log.info("Preview uploaded successfully: url={}", response.getS3Url());
+        log.info("Preview uploaded successfully: url={}", response.getImageUrl());
         return ResponseEntity.ok(response);
-    }    /**
+    }    
+    
+    
+    /**
      * POST /api/v1/customization/save
      * Saves or updates customization with frontend-generated preview image
      * Used in: Customizer page - "Save Design" button
@@ -104,7 +107,7 @@ public class CustomizationController {
      */
     @GetMapping("/{customizationId}")
     public ResponseEntity<CustomizationDTO> getCustomization(
-            @PathVariable String customizationId,
+            @PathVariable UUID customizationId,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
         log.info("GET /api/v1/customization/{} - user={}", 
@@ -112,7 +115,7 @@ public class CustomizationController {
                 userPrincipal.getEmail());
 
         UUID userId = userPrincipal.getId();
-        CustomizationDTO customization = customizationService.getCustomizationById(userId, userId);
+        CustomizationDTO customization = customizationService.getCustomizationById(customizationId, userId);
         
 
 
@@ -144,27 +147,7 @@ public class CustomizationController {
         return ResponseEntity.ok(customizations);
     }
 
-    /**
-     * GET /api/v1/customization/product/{productId}/latest
-     * Gets the most recent customization for a product
-     * Used in: Customizer page - Auto-load last design when reopening customizer
-     */
-    // @GetMapping("/product/{productId}/latest")
-    // public ResponseEntity<CustomizationDTO> getLatestCustomization(
-    //         @PathVariable UUID productId,
-    //         Authentication authentication) {
-
-    //     log.info("GET /api/v1/customization/product/{}/latest", productId);
-
-    //     UUID userId = getUserIdFromAuth(authentication);
-    //     Optional<CustomizationDTO> customization = customizationService
-    //             .getLatestCustomizationForProduct(userId, productId);
-
-    //     return customization
-    //             .map(ResponseEntity::ok)
-    //             .orElse(ResponseEntity.ok(null));
-    // }
-
+  
     /**
      * GET /api/v1/customization/my-designs
      * Gets all customizations for the current user (paginated)

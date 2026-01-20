@@ -161,6 +161,7 @@ public class CustomizationService {
             customization.setVariantId(request.getVariantId());
             customization.setDesignId(request.getDesignId());
             customization.setThreadColorHex(request.getThreadColorHex());
+            customization.setAdditionalNotes(request.getAdditionalNotes());
             
             // Only update preview if design actually changed
             if (designChanged || !request.getPreviewImageUrl().equals(customization.getPreviewImageUrl())) {
@@ -169,8 +170,6 @@ public class CustomizationService {
             } else {
                 log.info("Reusing existing preview image for customization: {}", customization.getId());
             }
-            
-            customization.setIsCompleted(true);
 
             isUpdate = true;
             log.info("Updating existing customization: {}", customization.getId());
@@ -183,7 +182,7 @@ public class CustomizationService {
                     .designId(request.getDesignId())
                     .threadColorHex(request.getThreadColorHex())
                     .previewImageUrl(request.getPreviewImageUrl())
-                    .isCompleted(true)
+                    .additionalNotes(request.getAdditionalNotes())
                     .build();
 
             log.info("Creating new customization for user: {}", userId);
@@ -247,7 +246,7 @@ public class CustomizationService {
                 .designId(customization.getDesignId())
                 .threadColorHex(customization.getThreadColorHex())
                 .previewImageUrl(customization.getPreviewImageUrl())
-                .isCompleted(customization.getIsCompleted())
+                .additionalNotes(customization.getAdditionalNotes())
                 .createdAt(customization.getCreatedAt())
                 .updatedAt(customization.getUpdatedAt())
                 .build();

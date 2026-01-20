@@ -56,6 +56,11 @@ public class CustomizationRequest {
     private String previewImageUrl;
 
     /**
+     * Optional: Additional notes or instructions for the customization
+     */
+    private String additionalNotes;
+
+    /**
      * Optional: Session ID for guest users
      * Used to associate designs with anonymous sessions before login
      * Required for guest users, null for authenticated users

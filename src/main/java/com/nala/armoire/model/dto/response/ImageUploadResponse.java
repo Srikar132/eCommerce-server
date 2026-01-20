@@ -18,8 +18,7 @@ public class ImageUploadResponse {
 
     private UUID id;
     private String fileName;
-    private String s3Url;
-    private String cdnUrl;
+    private String imageUrl; // CDN URL if available, otherwise S3 URL
     private Long fileSize;
     private String dimensions;
 }

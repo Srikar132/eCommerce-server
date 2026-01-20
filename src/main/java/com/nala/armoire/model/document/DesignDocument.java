@@ -76,18 +76,15 @@ public class DesignDocument {
     @Field(type = FieldType.Text)
     private String tagsText;
 
+    // ==================== PRICING ====================
+    
+    @Field(type = FieldType.Double)
+    private Double designPrice;
+
     // ==================== STATUS FLAGS ====================
     
     @Field(type = FieldType.Boolean)
     private Boolean isActive;
-
-    @Field(type = FieldType.Boolean)
-    private Boolean isPremium;
-
-    // ==================== STATISTICS ====================
-    
-    @Field(type = FieldType.Long)
-    private Long downloadCount;
 
     // ==================== TIMESTAMPS ====================
     

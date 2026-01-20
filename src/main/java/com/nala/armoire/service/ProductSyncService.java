@@ -257,6 +257,7 @@ public class ProductSyncService {
                 .reviewCount((long) product.getReviews().size())
                 // Status
                 .isActive(product.getIsActive())
+                .isDraft(product.getIsDraft())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();

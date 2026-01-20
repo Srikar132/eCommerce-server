@@ -51,7 +51,14 @@ public class SecurityConfig {
                                 "/api/v1/brands/**",
                                 "/api/v1/designs/**",
                                 "/api/v1/design-categories/**",
-                                "/health"
+                                "/health",
+                                // swagger-ui
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+
+                                //  razotpay webhook
+                                "/api/v1/webhooks/**"
+
                         ).permitAll()
 
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
