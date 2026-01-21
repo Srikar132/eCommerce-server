@@ -470,7 +470,8 @@ public class CartService {
             return null;
         }
         
-        ProductVariant variant = productVariantRepository.findById(variantId)
+        // Fetch variant with images eagerly for cart mapping
+        ProductVariant variant = productVariantRepository.findByIdWithImages(variantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + variantId));
         
         if (!variant.getProduct().getId().equals(product.getId())) {

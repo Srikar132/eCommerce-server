@@ -1,8 +1,15 @@
 package com.nala.armoire.service;
 
 import com.nala.armoire.exception.ResourceNotFoundException;
+import com.nala.armoire.model.dto.request.ImageCreateRequest;
+import com.nala.armoire.model.dto.request.ProductCreateRequest;
+import com.nala.armoire.model.dto.request.ProductUpdateRequest;
+import com.nala.armoire.model.dto.request.VariantCreateRequest;
 import com.nala.armoire.model.dto.response.ProductDTO;
+import com.nala.armoire.model.entity.Brand;
+import com.nala.armoire.model.entity.Category;
 import com.nala.armoire.model.entity.Product;
+import com.nala.armoire.model.entity.ProductImage;
 import com.nala.armoire.model.entity.ProductVariant;
 import com.nala.armoire.repository.CategoryRepository;
 import com.nala.armoire.repository.BrandRepository;
@@ -46,6 +53,298 @@ public class AdminProductService {
     public Page<ProductDTO> getAllProducts(Pageable pageable) {
         Page<Product> products = productRepository.findAll(pageable);
         return products.map(this::mapToDTO);
+    }
+
+    /**
+     * Create product with variants and images in single transaction
+     */
+    @Transactional
+    public ProductDTO createProductWithVariants(ProductCreateRequest request) {
+        // Validate category
+        Category category = null;
+        if (request.getCategoryId() != null) {
+            category = categoryRepository.findById(request.getCategoryId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+        }
+
+        // Validate brand
+        Brand brand = null;
+        if (request.getBrandId() != null) {
+            brand = brandRepository.findById(request.getBrandId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Brand not found"));
+        }
+
+        // Create product
+        Product product = Product.builder()
+                .name(request.getName())
+                .slug(request.getSlug())
+                .description(request.getDescription())
+                .basePrice(request.getBasePrice())
+                .sku(request.getSku())
+                .isCustomizable(request.getIsCustomizable())
+                .material(request.getMaterial())
+                .careInstructions(request.getCareInstructions())
+                .category(category)
+                .brand(brand)
+                .isDraft(request.getIsDraft())
+                .isActive(request.getIsActive())
+                .build();
+
+        // Add variants with images
+        for (VariantCreateRequest varReq : request.getVariants()) {
+            ProductVariant variant = ProductVariant.builder()
+                    .size(varReq.getSize())
+                    .color(varReq.getColor())
+                    .colorHex(varReq.getColorHex())
+                    .stockQuantity(varReq.getStockQuantity())
+                    .additionalPrice(varReq.getAdditionalPrice())
+                    .sku(varReq.getSku())
+                    .isActive(varReq.getIsActive())
+                    .build();
+
+            // Add images to variant
+            for (ImageCreateRequest imgReq : varReq.getImages()) {
+                ProductImage image = ProductImage.builder()
+                        .imageUrl(imgReq.getImageUrl())
+                        .altText(imgReq.getAltText())
+                        .displayOrder(imgReq.getDisplayOrder())
+                        .isPrimary(imgReq.getIsPrimary())
+                        .imageRole(imgReq.getImageRole())
+                        .build();
+                
+                variant.addImage(image);
+            }
+
+            product.addVariant(variant);
+        }
+
+        Product savedProduct = productRepository.save(product);
+
+        // Sync to Elasticsearch if not draft
+        if (!savedProduct.getIsDraft()) {
+            productSyncService.syncProduct(savedProduct.getId());
+        }
+
+        log.info("Created product {} with {} variants", 
+                savedProduct.getId(), savedProduct.getVariants().size());
+
+        return mapToDTO(savedProduct);
+    }
+
+    /**
+     * Update product with variants and images
+     */
+    @Transactional
+    public ProductDTO updateProductWithVariants(UUID productId, ProductUpdateRequest request) {
+        Product existingProduct = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+        // Update basic fields (only if provided)
+        if (request.getName() != null) {
+            existingProduct.setName(request.getName());
+        }
+        if (request.getSlug() != null) {
+            existingProduct.setSlug(request.getSlug());
+        }
+        if (request.getDescription() != null) {
+            existingProduct.setDescription(request.getDescription());
+        }
+        if (request.getBasePrice() != null) {
+            existingProduct.setBasePrice(request.getBasePrice());
+        }
+        if (request.getSku() != null) {
+            existingProduct.setSku(request.getSku());
+        }
+        if (request.getIsCustomizable() != null) {
+            existingProduct.setIsCustomizable(request.getIsCustomizable());
+        }
+        if (request.getMaterial() != null) {
+            existingProduct.setMaterial(request.getMaterial());
+        }
+        if (request.getCareInstructions() != null) {
+            existingProduct.setCareInstructions(request.getCareInstructions());
+        }
+
+        // Update draft status
+        if (request.getIsDraft() != null) {
+            existingProduct.setIsDraft(request.getIsDraft());
+        }
+
+        // Update active status
+        if (request.getIsActive() != null) {
+            existingProduct.setIsActive(request.getIsActive());
+        }
+
+        // Validate and update category
+        if (request.getCategoryId() != null) {
+            Category category = categoryRepository.findById(request.getCategoryId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+            existingProduct.setCategory(category);
+        }
+
+        // Validate and update brand
+        if (request.getBrandId() != null) {
+            Brand brand = brandRepository.findById(request.getBrandId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Brand not found"));
+            existingProduct.setBrand(brand);
+        }
+
+        // Update variants if provided
+        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
+            // Clear existing variants
+            existingProduct.getVariants().clear();
+            
+            // Add new variants
+            for (VariantCreateRequest varReq : request.getVariants()) {
+                ProductVariant variant = ProductVariant.builder()
+                        .size(varReq.getSize())
+                        .color(varReq.getColor())
+                        .colorHex(varReq.getColorHex())
+                        .stockQuantity(varReq.getStockQuantity())
+                        .additionalPrice(varReq.getAdditionalPrice())
+                        .sku(varReq.getSku())
+                        .isActive(varReq.getIsActive())
+                        .build();
+
+                // Add images to variant
+                for (ImageCreateRequest imgReq : varReq.getImages()) {
+                    ProductImage image = ProductImage.builder()
+                            .imageUrl(imgReq.getImageUrl())
+                            .altText(imgReq.getAltText())
+                            .displayOrder(imgReq.getDisplayOrder())
+                            .isPrimary(imgReq.getIsPrimary())
+                            .imageRole(imgReq.getImageRole())
+                            .build();
+                    
+                    variant.addImage(image);
+                }
+
+                existingProduct.addVariant(variant);
+            }
+        }
+
+        Product savedProduct = productRepository.save(existingProduct);
+
+        // Sync to Elasticsearch only if not a draft
+        if (!savedProduct.getIsDraft()) {
+            productSyncService.syncProduct(savedProduct.getId());
+        } else {
+            // If product became draft, remove from Elasticsearch
+            try {
+                productSyncService.deleteProduct(savedProduct.getId());
+            } catch (Exception e) {
+                log.warn("Failed to remove draft product from Elasticsearch: {}", e.getMessage());
+            }
+        }
+
+        log.info("Admin: Updated product: {} (draft: {})", savedProduct.getId(), savedProduct.getIsDraft());
+
+        return mapToDTO(savedProduct);
+    }
+
+    /**
+     * Add variant to existing product
+     */
+    @Transactional
+    public ProductDTO addVariantToProduct(UUID productId, VariantCreateRequest request) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+        ProductVariant variant = ProductVariant.builder()
+                .size(request.getSize())
+                .color(request.getColor())
+                .colorHex(request.getColorHex())
+                .stockQuantity(request.getStockQuantity())
+                .additionalPrice(request.getAdditionalPrice())
+                .sku(request.getSku())
+                .isActive(request.getIsActive())
+                .build();
+
+        // Add images
+        for (ImageCreateRequest imgReq : request.getImages()) {
+            ProductImage image = ProductImage.builder()
+                    .imageUrl(imgReq.getImageUrl())
+                    .altText(imgReq.getAltText())
+                    .displayOrder(imgReq.getDisplayOrder())
+                    .isPrimary(imgReq.getIsPrimary())
+                    .imageRole(imgReq.getImageRole())
+                    .build();
+            
+            variant.addImage(image);
+        }
+
+        product.addVariant(variant);
+        productRepository.save(product);
+
+        if (!product.getIsDraft()) {
+            productSyncService.syncProduct(product.getId());
+        }
+
+        log.info("Admin: Added variant to product: {}", productId);
+
+        return mapToDTO(product);
+    }
+
+    /**
+     * Update variant including images
+     */
+    @Transactional
+    public ProductDTO updateVariant(UUID variantId, VariantCreateRequest request) {
+        ProductVariant variant = productVariantRepository.findById(variantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Variant not found"));
+
+        // Update variant fields
+        variant.setSize(request.getSize());
+        variant.setColor(request.getColor());
+        variant.setColorHex(request.getColorHex());
+        variant.setStockQuantity(request.getStockQuantity());
+        variant.setAdditionalPrice(request.getAdditionalPrice());
+        variant.setSku(request.getSku());
+        variant.setIsActive(request.getIsActive());
+
+        // Replace images (clear and re-add)
+        variant.getImages().clear();
+        for (ImageCreateRequest imgReq : request.getImages()) {
+            ProductImage image = ProductImage.builder()
+                    .imageUrl(imgReq.getImageUrl())
+                    .altText(imgReq.getAltText())
+                    .displayOrder(imgReq.getDisplayOrder())
+                    .isPrimary(imgReq.getIsPrimary())
+                    .imageRole(imgReq.getImageRole())
+                    .build();
+            
+            variant.addImage(image);
+        }
+
+        productVariantRepository.save(variant);
+
+        Product product = variant.getProduct();
+        if (!product.getIsDraft()) {
+            productSyncService.syncProduct(product.getId());
+        }
+
+        log.info("Admin: Updated variant: {}", variantId);
+
+        return mapToDTO(product);
+    }
+
+    /**
+     * Delete variant
+     */
+    @Transactional
+    public void deleteVariant(UUID variantId) {
+        ProductVariant variant = productVariantRepository.findById(variantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Variant not found"));
+
+        Product product = variant.getProduct();
+        product.removeVariant(variant);
+        productRepository.save(product);
+
+        if (!product.getIsDraft()) {
+            productSyncService.syncProduct(product.getId());
+        }
+
+        log.info("Admin: Deleted variant: {}", variantId);
     }
 
     /**
@@ -335,7 +634,23 @@ public class AdminProductService {
     }
 
     private ProductDTO mapToDTO(Product product) {
-        // Use existing mapping from ProductService
+        // Extract primary image from first active variant
+        String primaryImageUrl = product.getVariants().stream()
+                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
+                .flatMap(v -> v.getImages().stream())
+                .filter(img -> img.getIsPrimary())
+                .findFirst()
+                .map(img -> img.getImageUrl())
+                .orElse(
+                        // Fallback to first image from first active variant
+                        product.getVariants().stream()
+                                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
+                                .flatMap(v -> v.getImages().stream())
+                                .findFirst()
+                                .map(img -> img.getImageUrl())
+                                .orElse(null)
+                );
+
         return ProductDTO.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -350,6 +665,7 @@ public class AdminProductService {
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .brandId(product.getBrand() != null ? product.getBrand().getId() : null)
                 .brandName(product.getBrand() != null ? product.getBrand().getName() : null)
+                .imageUrl(primaryImageUrl)
                 .isActive(product.getIsActive())
                 .isDraft(product.getIsDraft())
                 .createdAt(product.getCreatedAt())

@@ -285,42 +285,41 @@ public class ProductSearchService {
         return sortOptions;
     }
 
-    // CHANGED: Now handles variant-level images from Elasticsearch
+    // CHANGED: Extract primary image from variants in Elasticsearch document
     private ProductDTO mapToProductDTO(ProductDocument doc) {
-        // Collect all images from all variants (flattened from nested structure)
-        List<ProductImageDTO> images = new ArrayList<>();
-
-        if (doc.getVariants() != null) {
-            images = doc.getVariants().stream()
-                    .filter(variant -> variant.getImages() != null)
+        // Get primary image from first available variant
+        String primaryImageUrl = null;
+        
+        if (doc.getVariants() != null && !doc.getVariants().isEmpty()) {
+            primaryImageUrl = doc.getVariants().stream()
+                    .filter(variant -> variant.getImages() != null && !variant.getImages().isEmpty())
                     .flatMap(variant -> variant.getImages().stream())
-                    .map(img -> ProductImageDTO.builder()
-                            .id(UUID.fromString(img.getId()))
-                            .imageUrl(img.getImageUrl())
-                            .altText(img.getAltText())
-                            .displayOrder(img.getDisplayOrder())
-                            .isPrimary(img.getIsPrimary())
-                            .imageRole(img.getImageRole() != null
-                                    ? com.nala.armoire.model.entity.ImageRole.valueOf(img.getImageRole())
-                                    : null)
-                            .build())
-                    .collect(Collectors.toList());
+                    .filter(img -> img.getIsPrimary() != null && img.getIsPrimary())
+                    .findFirst()
+                    .map(img -> img.getImageUrl())
+                    .orElse(
+                            // Fallback to first image from first variant
+                            doc.getVariants().stream()
+                                    .filter(variant -> variant.getImages() != null && !variant.getImages().isEmpty())
+                                    .flatMap(variant -> variant.getImages().stream())
+                                    .findFirst()
+                                    .map(img -> img.getImageUrl())
+                                    .orElse(null)
+                    );
         }
-
-        // Fallback: If variants don't have images, check product-level (backward compatibility)
-        if (images.isEmpty() && doc.getImages() != null) {
-            images = doc.getImages().stream()
-                    .map(img -> ProductImageDTO.builder()
-                            .id(UUID.fromString(img.getId()))
-                            .imageUrl(img.getImageUrl())
-                            .altText(img.getAltText())
-                            .displayOrder(img.getDisplayOrder())
-                            .isPrimary(img.getIsPrimary())
-                            .imageRole(img.getImageRole() != null
-                                    ? com.nala.armoire.model.entity.ImageRole.valueOf(img.getImageRole())
-                                    : null)
-                            .build())
-                    .collect(Collectors.toList());
+        
+        // Additional fallback: Check product-level images (backward compatibility)
+        if (primaryImageUrl == null && doc.getImages() != null && !doc.getImages().isEmpty()) {
+            primaryImageUrl = doc.getImages().stream()
+                    .filter(img -> img.getIsPrimary() != null && img.getIsPrimary())
+                    .findFirst()
+                    .map(img -> img.getImageUrl())
+                    .orElseGet(() -> 
+                            doc.getImages().stream()
+                                    .findFirst()
+                                    .map(img -> img.getImageUrl())
+                                    .orElse(null)
+                    );
         }
 
         return ProductDTO.builder()
@@ -337,35 +336,7 @@ public class ProductSearchService {
                 .categoryName(doc.getCategoryName())
                 .brandId(doc.getBrandId() != null ? UUID.fromString(doc.getBrandId()) : null)
                 .brandName(doc.getBrandName())
-                // ✅ MAP VARIANTS (NOT IMAGES)
-                .variants(
-                        doc.getVariants() == null ? List.of()
-                                : doc.getVariants().stream()
-                                        .map(v -> ProductVariantDTO.builder()
-                                                .id(UUID.fromString(v.getId()))
-                                                .size(v.getSize())
-                                                .color(v.getColor())
-                                                .colorHex(v.getColorHex())
-                                                .stockQuantity(v.getStockQuantity())
-                                                .additionalPrice(v.getAdditionalPrice())
-                                                .isActive(v.getIsActive())
-                                                // ✅ IMAGES INSIDE VARIANT
-                                                .images(
-                                                        v.getImages() == null ? List.of()
-                                                                : v.getImages().stream()
-                                                                        .map(img -> ProductImageDTO.builder()
-                                                                                                        .id(UUID.fromString(img.getId()))
-                                                                                                        .imageUrl(img.getImageUrl())
-                                                                                                        .altText(img.getAltText())
-                                                                                                        .displayOrder(img.getDisplayOrder())
-                                                                                                        .isPrimary(img.getIsPrimary())
-                                                                                                        .imageRole(img.getImageRole() != null
-                                                                                                                ? com.nala.armoire.model.entity.ImageRole.valueOf(img.getImageRole())
-                                                                                                                : null)
-                                                                                                        .build())
-                                                                        .toList())
-                                                .build())
-                                        .toList())
+                .imageUrl(primaryImageUrl)
                 .averageRating(doc.getAverageRating())
                 .reviewCount(doc.getReviewCount())
                 .isActive(doc.getIsActive())

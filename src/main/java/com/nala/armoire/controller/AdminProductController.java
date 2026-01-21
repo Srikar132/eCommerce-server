@@ -1,9 +1,12 @@
 package com.nala.armoire.controller;
 
+import com.nala.armoire.model.dto.request.ProductCreateRequest;
+import com.nala.armoire.model.dto.request.ProductUpdateRequest;
+import com.nala.armoire.model.dto.request.VariantCreateRequest;
 import com.nala.armoire.model.dto.response.PagedResponse;
 import com.nala.armoire.model.dto.response.ProductDTO;
-import com.nala.armoire.model.entity.Product;
 import com.nala.armoire.service.AdminProductService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -69,30 +72,31 @@ public class AdminProductController {
 
     /**
      * POST /api/v1/admin/products
-     * Create new product (can be draft or published)
+     * Create new product with variants and images
      */
     @PostMapping
-    public ResponseEntity<ProductDTO> createProduct(@RequestBody Product product) {
-        log.info("Admin: Creating new product: {} (draft: {})", 
-                product.getName(), product.getIsDraft());
-
-        ProductDTO createdProduct = adminProductService.createProduct(product);
-
+    public ResponseEntity<ProductDTO> createProduct(
+            @Valid @RequestBody ProductCreateRequest request) {
+        
+        log.info("Admin: Creating product with {} variants", request.getVariants().size());
+        
+        ProductDTO createdProduct = adminProductService.createProductWithVariants(request);
+        
         return ResponseEntity.status(HttpStatus.CREATED).body(createdProduct);
     }
 
     /**
      * PUT /api/v1/admin/products/{id}
-     * Update existing product (supports partial updates for draft workflow with debounce)
+     * Update existing product with variants and images
      */
     @PutMapping("/{id}")
     public ResponseEntity<ProductDTO> updateProduct(
             @PathVariable UUID id,
-            @RequestBody Product product) {
+            @Valid @RequestBody ProductUpdateRequest request) {
 
-        log.info("Admin: Updating product: {} (draft: {})", id, product.getIsDraft());
+        log.info("Admin: Updating product: {}", id);
 
-        ProductDTO updatedProduct = adminProductService.updateProduct(id, product);
+        ProductDTO updatedProduct = adminProductService.updateProductWithVariants(id, request);
 
         return ResponseEntity.ok(updatedProduct);
     }
@@ -104,13 +108,58 @@ public class AdminProductController {
     @PatchMapping("/{id}")
     public ResponseEntity<ProductDTO> patchProduct(
             @PathVariable UUID id,
-            @RequestBody Product product) {
+            @Valid @RequestBody ProductUpdateRequest request) {
 
         log.info("Admin: Patching product: {}", id);
 
-        ProductDTO updatedProduct = adminProductService.updateProduct(id, product);
+        ProductDTO updatedProduct = adminProductService.updateProductWithVariants(id, request);
 
         return ResponseEntity.ok(updatedProduct);
+    }
+
+    /**
+     * POST /api/v1/admin/products/{productId}/variants
+     * Add variant to existing product
+     */
+    @PostMapping("/{productId}/variants")
+    public ResponseEntity<ProductDTO> addVariant(
+            @PathVariable UUID productId,
+            @Valid @RequestBody VariantCreateRequest request) {
+        
+        log.info("Admin: Adding variant to product: {}", productId);
+        
+        ProductDTO product = adminProductService.addVariantToProduct(productId, request);
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(product);
+    }
+
+    /**
+     * PUT /api/v1/admin/products/variants/{variantId}
+     * Update variant
+     */
+    @PutMapping("/variants/{variantId}")
+    public ResponseEntity<ProductDTO> updateVariant(
+            @PathVariable UUID variantId,
+            @Valid @RequestBody VariantCreateRequest request) {
+        
+        log.info("Admin: Updating variant: {}", variantId);
+        
+        ProductDTO product = adminProductService.updateVariant(variantId, request);
+        
+        return ResponseEntity.ok(product);
+    }
+
+    /**
+     * DELETE /api/v1/admin/products/variants/{variantId}
+     * Delete variant
+     */
+    @DeleteMapping("/variants/{variantId}")
+    public ResponseEntity<Void> deleteVariant(@PathVariable UUID variantId) {
+        log.info("Admin: Deleting variant: {}", variantId);
+        
+        adminProductService.deleteVariant(variantId);
+        
+        return ResponseEntity.noContent().build();
     }
 
     /**

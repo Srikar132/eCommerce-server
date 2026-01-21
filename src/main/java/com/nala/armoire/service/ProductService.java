@@ -199,11 +199,28 @@ public class ProductService {
 
     // ==================== MAPPING METHODS ====================
 
-    // CHANGED: Now collects images from all variants
+    // CHANGED: Extract primary image from first active variant
     private ProductDTO mapToProductDTO(Product product) {
 
         Double averageRating = reviewRepository.findAverageRatingByProductId(product.getId());
         Long reviewCount = reviewRepository.countByProductId(product.getId());
+
+        // Get primary image from first active variant
+        String primaryImageUrl = product.getVariants().stream()
+                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
+                .flatMap(v -> v.getImages().stream())
+                .filter(img -> img.getIsPrimary())
+                .findFirst()
+                .map(img -> img.getImageUrl())
+                .orElse(
+                        // Fallback to first image from first active variant
+                        product.getVariants().stream()
+                                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
+                                .flatMap(v -> v.getImages().stream())
+                                .findFirst()
+                                .map(img -> img.getImageUrl())
+                                .orElse(null)
+                );
 
         return ProductDTO.builder()
                 .id(product.getId())
@@ -219,33 +236,7 @@ public class ProductService {
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .brandId(product.getBrand() != null ? product.getBrand().getId() : null)
                 .brandName(product.getBrand() != null ? product.getBrand().getName() : null)
-                .variants(
-                        product.getVariants().stream()
-                                .map(variant -> ProductVariantDTO.builder()
-                                        .id(variant.getId())
-                                        .size(variant.getSize())
-                                        .color(variant.getColor())
-                                        .colorHex(variant.getColorHex())
-                                        .stockQuantity(variant.getStockQuantity())
-                                        .additionalPrice(variant.getAdditionalPrice())
-                                        .sku(variant.getSku())
-                                        .isActive(variant.getIsActive())
-
-                                        // ✅ Images INSIDE variant
-                                        .images(
-                                                variant.getImages().stream()
-                                                        .map(image -> ProductImageDTO.builder()
-                                                                .id(image.getId())
-                                                                .imageUrl(image.getImageUrl())
-                                                                .altText(image.getAltText())
-                                                                .displayOrder(image.getDisplayOrder())
-                                                                .isPrimary(image.getIsPrimary())
-                                                                .imageRole(image.getImageRole())
-                                                                .build())
-                                                        .toList())
-                                        .build())
-                                .toList())
-
+                .imageUrl(primaryImageUrl)
                 .averageRating(averageRating)
                 .reviewCount(reviewCount)
                 .isActive(product.getIsActive())
