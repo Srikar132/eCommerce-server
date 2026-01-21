@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -32,7 +31,7 @@ public class ProductDTO {
     private String categoryName;
     private UUID brandId;
     private String brandName;
-    private List<ProductVariantDTO> variants;
+    private String imageUrl; // Primary image from first active variant
     private Double averageRating;
     private Long reviewCount;
     

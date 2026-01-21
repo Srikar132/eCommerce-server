@@ -16,4 +16,5 @@ public class VariantSummary {
     private String size;
     private String color;
     private String sku;
+    private String primaryImageUrl;  // The main image for this variant
 }

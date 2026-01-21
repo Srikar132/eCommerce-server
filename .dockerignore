@@ -1,0 +1,51 @@
+# Maven build output
+target/
+!target/armoire-*.jar
+
+# Maven wrapper (we'll download it in the container)
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Logs
+*.log
+logs/
+
+# Test files (if you want to exclude them)
+src/test/
+
+# Environment files (sensitive data)
+.env
+.env.local
+.env.*.local
+
+# Postman collections
+postman/

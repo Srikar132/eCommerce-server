@@ -46,28 +46,33 @@ public class CartMapper {
     public ProductSummary toProductSummary(Product product) {
         if(product == null) return null;
 
-        String imageUrl = null;
-        // if (product.getImages() != null && !product.getImages().isEmpty()) {
-        //     imageUrl = product.getImages().get(0).getImageUrl();
-        // }
-
         return ProductSummary.builder()
                 .id(product.getId())
                 .name(product.getName())
                 .slug(product.getSlug())
                 .sku(product.getSku())
-                .imageUrl(imageUrl)
                 .build();
     }
 
     public VariantSummary toVariantSummary(ProductVariant variant) {
         if(variant == null) return null;
 
+        // Get primary image URL
+        String primaryImageUrl = null;
+        if (variant.getImages() != null && !variant.getImages().isEmpty()) {
+            primaryImageUrl = variant.getImages().stream()
+                    .filter(img -> img.getIsPrimary() != null && img.getIsPrimary())
+                    .findFirst()
+                    .map(img -> img.getImageUrl())
+                    .orElseGet(() -> variant.getImages().get(0).getImageUrl());
+        }
+
         return VariantSummary.builder()
                 .id(variant.getId())
                 .size(variant.getSize())
                 .color(variant.getColor())
-                .sku(variant.getColor())
+                .sku(variant.getSku())
+                .primaryImageUrl(primaryImageUrl)
                 .build();
     }
 
