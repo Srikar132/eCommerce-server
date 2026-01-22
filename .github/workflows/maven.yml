@@ -72,33 +72,50 @@ jobs:
             set -e
             cd /home/ec2-user/armoire
 
-            echo "Pulling latest backend image..."
-            docker-compose pull backend
+            echo "Checking if Elasticsearch is running..."
+            if ! docker-compose ps elasticsearch | grep -q "Up"; then
+              echo "⚠️ Elasticsearch not running! Starting all services..."
+              docker-compose up -d
+            else
+              echo "✅ Elasticsearch is running. Updating backend only..."
+              docker-compose pull backend
+              docker-compose up -d --no-deps backend
+            fi
 
-            echo "Restarting backend only (zero downtime)..."
-            docker-compose up -d --no-deps backend
+            echo "Waiting for containers to stabilize..."
+            sleep 10
 
             echo "Current running containers:"
             docker-compose ps
+          
+            echo "Checking Elasticsearch health..."
+            docker-compose exec -T elasticsearch curl -s http://localhost:9200/_cluster/health || echo "Elasticsearch not ready yet"
           EOF
 
       #  Health check
       - name: Backend health check
         run: |
           echo "Waiting for backend to become healthy..."
-          sleep 60
+          sleep 30
 
-          for i in {1..24}; do
-            STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://${{ secrets.EC2_HOST }}:8080/actuator/health)
+          for i in {1..15}; do
+            echo "Health check attempt $i/15..."
+            STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://${{ secrets.EC2_HOST }}:8080/actuator/health || echo "000")
+            echo "Response status: $STATUS"
+          
             if [ "$STATUS" = "200" ]; then
-              echo "Backend is healthy"
+              echo "✅ Backend is healthy!"
+              curl -s http://${{ secrets.EC2_HOST }}:8080/actuator/health
               exit 0
             fi
-            echo "Retrying in 10s... (status=$STATUS)"
+          
+            echo "⏳ Backend not ready yet (status=$STATUS). Retrying in 10s..."
             sleep 10
           done
 
-          echo " Health check failed"
+          echo "❌ Health check failed after 15 attempts"
+          echo "Checking backend logs..."
+          ssh ec2-user@${{ secrets.EC2_HOST }} "cd /home/ec2-user/armoire && docker-compose logs --tail=50 backend"
           exit 1
 
       #  Cleanup
