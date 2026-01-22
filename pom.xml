@@ -189,8 +189,6 @@
                 </configuration>
             </plugin>
         </plugins>
-
-        <finalName>nala-armorie-backend</finalName>
     </build>
 
 </project>
