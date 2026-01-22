@@ -60,32 +60,10 @@ jobs:
       # Setup SSH
       - name: Setup SSH
         run: |
-          mkdir -p ~/.ssh || { echo "Failed to create .ssh directory"; exit 1; }
-          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa || { echo "Failed to write SSH key"; exit 1; }
-          chmod 600 ~/.ssh/id_rsa || { echo "Failed to set permissions"; exit 1; }
-          
-          # Add SSH host key
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>&1 || { 
-            echo "Failed to add host key. Is EC2_HOST correct?"; 
-            echo "EC2_HOST: ${{ secrets.EC2_HOST }}";
-            exit 1; 
-          }
-          
-          echo "✅ SSH setup complete"
-
-      # Test SSH connection first
-      - name: Test SSH Connection
-        run: |
-          echo "Testing SSH connection to ${{ secrets.EC2_HOST }}..."
-          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${{ env.EC2_USER }}@${{ secrets.EC2_HOST }} "echo '✅ SSH connection successful'" || {
-            echo "❌ SSH connection failed!"
-            echo "Troubleshooting tips:"
-            echo "1. Check EC2 security group allows SSH from GitHub Actions IP"
-            echo "2. Verify EC2 instance is running"
-            echo "3. Confirm EC2_SSH_PRIVATE_KEY secret is correct"
-            echo "4. Try username 'ubuntu' instead of 'ec2-user' if Amazon Linux 2023"
-            exit 1
-          }
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       #   Deploy (ZERO-DOWNTIME)
       - name: Deploy backend on EC2
@@ -94,39 +72,24 @@ jobs:
             set -e
             cd /home/ec2-user/armoire
 
-            echo "Pulling latest backend image..."
-            docker-compose pull backend
-
             echo "Checking if Elasticsearch is running..."
             if ! docker-compose ps elasticsearch | grep -q "Up"; then
-              echo "⚠️ Elasticsearch not running! Starting Elasticsearch first..."
-              docker-compose up -d elasticsearch
-          
-              echo "Waiting for Elasticsearch to be ready..."
-              for i in {1..30}; do
-                if curl -s http://localhost:9200/_cluster/health > /dev/null 2>&1; then
-                  echo "✅ Elasticsearch is ready!"
-                  break
-                fi
-                echo "⏳ Waiting for Elasticsearch... ($i/30)"
-                sleep 5
-              done
+              echo "⚠️ Elasticsearch not running! Starting all services..."
+              docker-compose up -d
+            else
+              echo "✅ Elasticsearch is running. Updating backend only..."
+              docker-compose pull backend
+              docker-compose up -d --no-deps backend
             fi
 
-            echo "Starting/Updating backend..."
-            docker-compose up -d backend
-
             echo "Waiting for containers to stabilize..."
-            sleep 15
+            sleep 10
 
             echo "Current running containers:"
             docker-compose ps
           
-            echo "Checking Elasticsearch status:"
-            curl -s http://localhost:9200/_cluster/health || echo "Elasticsearch health check failed"
-          
-            echo "Checking backend logs (last 20 lines):"
-            docker-compose logs --tail=20 backend
+            echo "Checking Elasticsearch health..."
+            docker-compose exec -T elasticsearch curl -s http://localhost:9200/_cluster/health || echo "Elasticsearch not ready yet"
           EOF
 
       #  Health check
