@@ -61,9 +61,31 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          
+          # Write SSH key (using cat with heredoc to preserve newlines)
+          cat << 'SSHKEY' > ~/.ssh/id_rsa
+          ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          SSHKEY
+          
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          
+          # Verify key was written correctly
+          echo "Verifying SSH key format..."
+          head -n 1 ~/.ssh/id_rsa | grep -q "BEGIN" || {
+            echo "❌ SSH key format is incorrect!"
+            exit 1
+          }
+          
+          # Add host key with better error handling
+          echo "Adding SSH host key..."
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>&1 || {
+            echo "❌ Failed to get host key from ${{ secrets.EC2_HOST }}"
+            echo "Checking connectivity..."
+            nc -zv -w5 ${{ secrets.EC2_HOST }} 22 || echo "Port 22 is not reachable"
+            exit 1
+          }
+          
+          echo "✅ SSH setup complete"
 
       #   Deploy (ZERO-DOWNTIME)
       - name: Deploy backend on EC2
