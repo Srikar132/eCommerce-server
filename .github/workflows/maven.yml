@@ -60,12 +60,32 @@ jobs:
       # Setup SSH
       - name: Setup SSH
         run: |
-          mkdir -p ~/.ssh
-          cat << 'EOF' > ~/.ssh/id_rsa
-          ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          EOF
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          mkdir -p ~/.ssh || { echo "Failed to create .ssh directory"; exit 1; }
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa || { echo "Failed to write SSH key"; exit 1; }
+          chmod 600 ~/.ssh/id_rsa || { echo "Failed to set permissions"; exit 1; }
+          
+          # Add SSH host key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>&1 || { 
+            echo "Failed to add host key. Is EC2_HOST correct?"; 
+            echo "EC2_HOST: ${{ secrets.EC2_HOST }}";
+            exit 1; 
+          }
+          
+          echo "✅ SSH setup complete"
+
+      # Test SSH connection first
+      - name: Test SSH Connection
+        run: |
+          echo "Testing SSH connection to ${{ secrets.EC2_HOST }}..."
+          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${{ env.EC2_USER }}@${{ secrets.EC2_HOST }} "echo '✅ SSH connection successful'" || {
+            echo "❌ SSH connection failed!"
+            echo "Troubleshooting tips:"
+            echo "1. Check EC2 security group allows SSH from GitHub Actions IP"
+            echo "2. Verify EC2 instance is running"
+            echo "3. Confirm EC2_SSH_PRIVATE_KEY secret is correct"
+            echo "4. Try username 'ubuntu' instead of 'ec2-user' if Amazon Linux 2023"
+            exit 1
+          }
 
       #   Deploy (ZERO-DOWNTIME)
       - name: Deploy backend on EC2
