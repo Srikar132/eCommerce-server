@@ -8,10 +8,16 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
     ports:
       - "9600:9200"
       - "9601:9300"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 256m
     volumes:
       - esdata:/usr/share/elasticsearch/data
     networks:
@@ -33,46 +39,52 @@ services:
     environment:
       # Spring Profile
       - SPRING_PROFILES_ACTIVE=docker
-      
+
       # Database Configuration (from .env file)
       - DATABASE_URL=${DATABASE_URL}
       - DATABASE_USERNAME=${DATABASE_USERNAME}
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
-      
+
       # JWT Configuration
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ACCESS_TOKEN_EXPIRATION=${JWT_ACCESS_TOKEN_EXPIRATION:-900000}
       - JWT_REFRESH_TOKEN_EXPIRATION=${JWT_REFRESH_TOKEN_EXPIRATION:-604800000}
       - JWT_COOKIE_SECURE=${JWT_COOKIE_SECURE:-false}
-      
+
       # Elasticsearch Configuration
       - ELASTICSEARCH_URIS=http://elasticsearch:9200
-      
+
       # Mail Configuration
       - MAIL_HOST=${MAIL_HOST:-smtp.gmail.com}
       - MAIL_PORT=${MAIL_PORT:-587}
       - MAIL_USERNAME=${MAIL_USERNAME}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
-      
+
       # AWS Configuration
       - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
       - AWS_REGION=${AWS_REGION:-eu-north-1}
       - AWS_S3_BUCKET=${AWS_S3_BUCKET}
       - AWS_CLOUDFRONT_DOMAIN=${AWS_CLOUDFRONT_DOMAIN}
-      
+
       # Frontend URL
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      
+
       # Razorpay Configuration
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
-      
+
       # Admin Email
       - ADMIN_EMAIL=${ADMIN_EMAIL}
-      
+
       # Java Options
-      - JAVA_OPTS=-Xms512m -Xmx1024m
+      - JAVA_OPTS=-Xms256m -Xmx512m
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+        reservations:
+          memory: 512m
     depends_on:
       elasticsearch:
         condition: service_healthy
