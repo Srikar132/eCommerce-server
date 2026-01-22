@@ -61,9 +61,7 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          cat << 'EOF' > ~/.ssh/id_rsa
-          ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          EOF
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
@@ -74,39 +72,24 @@ jobs:
             set -e
             cd /home/ec2-user/armoire
 
-            echo "Pulling latest backend image..."
-            docker-compose pull backend
-
             echo "Checking if Elasticsearch is running..."
             if ! docker-compose ps elasticsearch | grep -q "Up"; then
-              echo "⚠️ Elasticsearch not running! Starting Elasticsearch first..."
-              docker-compose up -d elasticsearch
-          
-              echo "Waiting for Elasticsearch to be ready..."
-              for i in {1..30}; do
-                if curl -s http://localhost:9200/_cluster/health > /dev/null 2>&1; then
-                  echo "✅ Elasticsearch is ready!"
-                  break
-                fi
-                echo "⏳ Waiting for Elasticsearch... ($i/30)"
-                sleep 5
-              done
+              echo "⚠️ Elasticsearch not running! Starting all services..."
+              docker-compose up -d
+            else
+              echo "✅ Elasticsearch is running. Updating backend only..."
+              docker-compose pull backend
+              docker-compose up -d --no-deps backend
             fi
 
-            echo "Starting/Updating backend..."
-            docker-compose up -d backend
-
             echo "Waiting for containers to stabilize..."
-            sleep 15
+            sleep 10
 
             echo "Current running containers:"
             docker-compose ps
           
-            echo "Checking Elasticsearch status:"
-            curl -s http://localhost:9200/_cluster/health || echo "Elasticsearch health check failed"
-          
-            echo "Checking backend logs (last 20 lines):"
-            docker-compose logs --tail=20 backend
+            echo "Checking Elasticsearch health..."
+            docker-compose exec -T elasticsearch curl -s http://localhost:9200/_cluster/health || echo "Elasticsearch not ready yet"
           EOF
 
       #  Health check
