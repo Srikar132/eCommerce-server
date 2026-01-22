@@ -82,7 +82,7 @@ jobs:
           
               echo "Waiting for Elasticsearch to be ready..."
               for i in {1..30}; do
-                if curl -s http://localhost:9600/_cluster/health > /dev/null 2>&1; then
+                if curl -s http://localhost:9200/_cluster/health > /dev/null 2>&1; then
                   echo "✅ Elasticsearch is ready!"
                   break
                 fi
@@ -101,7 +101,7 @@ jobs:
             docker-compose ps
           
             echo "Checking Elasticsearch status:"
-            curl -s http://localhost:9600/_cluster/health || echo "Elasticsearch health check failed"
+            curl -s http://localhost:9200/_cluster/health || echo "Elasticsearch health check failed"
           
             echo "Checking backend logs (last 20 lines):"
             docker-compose logs --tail=20 backend
