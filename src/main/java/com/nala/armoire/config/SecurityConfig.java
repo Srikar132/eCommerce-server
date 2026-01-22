@@ -57,7 +57,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
 
                                 //  razotpay webhook
-                                "/api/v1/webhooks/**"
+                                "/api/v1/webhooks/**",
+                                "/actuator/**"
 
                         ).permitAll()
 
