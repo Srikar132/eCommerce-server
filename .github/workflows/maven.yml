@@ -89,11 +89,12 @@ jobs:
           sleep 20
 
           for i in {1..10}; do
-            if curl -fs http://localhost:8080/actuator/health | grep UP; then
+            STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://${{ secrets.EC2_HOST }}:8080/actuator/health)
+            if [ "$STATUS" = "200" ]; then
               echo "Backend is healthy"
               exit 0
             fi
-            echo "Retrying in 10s..."
+            echo "Retrying in 10s... (status=$STATUS)"
             sleep 10
           done
 
