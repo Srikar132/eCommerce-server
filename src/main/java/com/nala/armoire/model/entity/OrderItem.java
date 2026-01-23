@@ -3,6 +3,8 @@ package com.nala.armoire.model.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -42,6 +44,7 @@ public class OrderItem {
     private Boolean hasCustomization = false;
 
     @Column(name = "customization_snapshot", columnDefinition = "JSONB")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String customizationSnapshot; // JSON string of customization details
 
     @Column(name = "production_status", length = 50)

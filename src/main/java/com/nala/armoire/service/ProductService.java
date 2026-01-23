@@ -292,4 +292,134 @@ public class ProductService {
                 .createdAt(review.getCreatedAt())
                 .build();
     }
+
+    /**
+     * Search products with facets for filtering
+     */
+    @Transactional(readOnly = true)
+    public ProductSearchResponse searchProductsWithFacets(
+            List<String> categorySlugs,
+            List<String> brandSlugs,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            List<String> sizes,
+            List<String> colors,
+            Boolean isCustomizable,
+            String searchQuery,
+            Pageable pageable) {
+
+        log.info("Searching products with facets - category: {}, brand: {}, query: {}", 
+                categorySlugs, brandSlugs, searchQuery);
+
+        // Build specification for filtering
+        Specification<Product> spec = ProductSpecification.isActive()
+                .and(ProductSpecification.isNotDraft());
+
+        if (categorySlugs != null && !categorySlugs.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasCategorySlugs(categorySlugs));
+        }
+
+        if (brandSlugs != null && !brandSlugs.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasBrandSlugs(brandSlugs));
+        }
+
+        if (minPrice != null) {
+            spec = spec.and(ProductSpecification.hasPriceGreaterThanOrEqual(minPrice));
+        }
+
+        if (maxPrice != null) {
+            spec = spec.and(ProductSpecification.hasPriceLessThanOrEqual(maxPrice));
+        }
+
+        if (isCustomizable != null) {
+            spec = spec.and(ProductSpecification.isCustomizable(isCustomizable));
+        }
+
+        if (sizes != null && !sizes.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasVariantWithSizes(sizes));
+        }
+
+        if (colors != null && !colors.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasVariantWithColors(colors));
+        }
+
+        if (searchQuery != null && !searchQuery.trim().isEmpty()) {
+            spec = spec.and(ProductSpecification.searchByNameOrDescription(searchQuery));
+        }
+
+        // Get paginated products
+        Page<Product> productPage = productRepository.findAll(spec, pageable);
+        List<ProductDTO> productDTOs = productPage.getContent()
+                .stream()
+                .map(this::mapToProductDTO)
+                .collect(Collectors.toList());
+
+        PagedResponse<ProductDTO> pagedProducts = PagedResponse.<ProductDTO>builder()
+                .content(productDTOs)
+                .page(productPage.getNumber())
+                .size(productPage.getSize())
+                .totalElements(productPage.getTotalElements())
+                .totalPages(productPage.getTotalPages())
+                .first(productPage.isFirst())
+                .last(productPage.isLast())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .build();
+
+        // Get facets
+        ProductFacetsDTO facets = productRepository.getProductFacets(
+                categorySlugs, brandSlugs, minPrice, maxPrice, sizes, colors, 
+                isCustomizable, searchQuery);
+
+        // Mark selected facets
+        markSelectedFacets(facets, categorySlugs, brandSlugs, sizes, colors);
+
+        return ProductSearchResponse.builder()
+                .products(pagedProducts)
+                .facets(facets)
+                .build();
+    }
+
+    /**
+     * Mark which facets are currently selected
+     */
+    private void markSelectedFacets(ProductFacetsDTO facets, 
+                                     List<String> selectedCategories,
+                                     List<String> selectedBrands,
+                                     List<String> selectedSizes,
+                                     List<String> selectedColors) {
+        if (facets.getCategories() != null && selectedCategories != null) {
+            facets.getCategories().forEach(cat -> 
+                cat.setSelected(selectedCategories.contains(cat.getValue())));
+        }
+
+        if (facets.getBrands() != null && selectedBrands != null) {
+            facets.getBrands().forEach(brand -> 
+                brand.setSelected(selectedBrands.contains(brand.getValue())));
+        }
+
+        if (facets.getSizes() != null && selectedSizes != null) {
+            facets.getSizes().forEach(size -> 
+                size.setSelected(selectedSizes.contains(size.getValue())));
+        }
+
+        if (facets.getColors() != null && selectedColors != null) {
+            facets.getColors().forEach(color -> 
+                color.setSelected(selectedColors.contains(color.getValue())));
+        }
+    }
+
+    /**
+     * Get product name autocomplete suggestions
+     */
+    @Transactional(readOnly = true)
+    public List<String> getProductAutocomplete(String query, Integer limit) {
+        log.info("Getting autocomplete for query: {}", query);
+
+        if (query == null || query.trim().isEmpty()) {
+            return List.of();
+        }
+
+        return productRepository.findProductNameAutocomplete(query.trim(), limit);
+    }
 }

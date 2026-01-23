@@ -1,21 +1,22 @@
 package com.nala.armoire.controller;
 
 import com.nala.armoire.model.dto.response.*;
-import com.nala.armoire.service.DesignSearchService;
 import com.nala.armoire.service.DesignService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Design Controller - Elasticsearch-powered
- * Provides fast search, filter, and retrieval of designs
+ * Design Controller
+ * Provides search, filter, and retrieval of designs
  */
 @Slf4j
 @RestController
@@ -24,10 +25,9 @@ import java.util.UUID;
 public class DesignController {
 
     private final DesignService designService;
-    private final DesignSearchService designSearchService;
 
     /**
-     * GET /api/v1/designs - Search, filter, and list designs (Elasticsearch)
+     * GET /api/v1/designs - Search, filter, and list designs
      * 
      * Supports:
      * - Full-text search (name, description, tags)
@@ -58,13 +58,35 @@ public class DesignController {
                 : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
-        // Search using Elasticsearch
-        PagedResponse<DesignListDTO> response = designSearchService.searchDesigns(
-                categorySlug, q, pageable);
+        // Search using PostgreSQL
+        Page<DesignListDTO> designsPage = designService.searchDesigns(categorySlug, q, pageable);
 
-        return ResponseEntity.ok(
-                response
-        );
+        PagedResponse<DesignListDTO> response = PagedResponse.<DesignListDTO>builder()
+                .content(designsPage.getContent())
+                .page(designsPage.getNumber())
+                .size(designsPage.getSize())
+                .totalElements(designsPage.getTotalElements())
+                .totalPages(designsPage.getTotalPages())
+                .first(designsPage.isFirst())
+                .last(designsPage.isLast())
+                .hasNext(designsPage.hasNext())
+                .hasPrevious(designsPage.hasPrevious())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /api/v1/designs/categories - List all design categories
+     * Returns all active categories ordered by display order
+     */
+    @GetMapping("/categories")
+    public ResponseEntity<List<DesignCategoryDTO>> getAllCategories() {
+        log.info("GET /api/v1/designs/categories");
+
+        List<DesignCategoryDTO> categories = designService.getAllCategories();
+
+        return ResponseEntity.ok(categories);
     }
 
     /**

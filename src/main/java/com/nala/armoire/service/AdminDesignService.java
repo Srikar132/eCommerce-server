@@ -29,7 +29,6 @@ public class AdminDesignService {
 
     private final DesignRepository designRepository;
     private final DesignCategoryRepository designCategoryRepository;
-    private final DesignSyncService designSyncService;
 
     /**
      * Get all designs (including inactive)
@@ -98,7 +97,6 @@ public class AdminDesignService {
         Design savedDesign = designRepository.save(design);
 
         // Sync to Elasticsearch
-        designSyncService.syncDesignToElasticsearch(savedDesign.getId());
 
         log.info("Admin: Created design: {} with ID: {}", savedDesign.getName(), savedDesign.getId());
 
@@ -162,7 +160,6 @@ public class AdminDesignService {
         Design savedDesign = designRepository.save(existingDesign);
 
         // Sync to Elasticsearch
-        designSyncService.syncDesignToElasticsearch(savedDesign.getId());
 
         log.info("Admin: Updated design: {}", savedDesign.getId());
 
@@ -181,7 +178,6 @@ public class AdminDesignService {
                 .orElseThrow(() -> new ResourceNotFoundException("Design not found with id: " + designId));
 
         // Delete from Elasticsearch first
-        designSyncService.deleteDesignFromElasticsearch(designId);
 
         // Delete from database
         designRepository.delete(design);
@@ -205,7 +201,6 @@ public class AdminDesignService {
         Design savedDesign = designRepository.save(design);
 
         // Sync to Elasticsearch
-        designSyncService.syncDesignToElasticsearch(savedDesign.getId());
 
         log.info("Admin: Toggled design status: {}, active: {}",
                 savedDesign.getId(), savedDesign.getIsActive());

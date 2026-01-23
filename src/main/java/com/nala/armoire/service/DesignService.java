@@ -3,23 +3,21 @@ package com.nala.armoire.service;
 import com.nala.armoire.exception.ResourceNotFoundException;
 import com.nala.armoire.model.dto.response.DesignCategoryDTO;
 import com.nala.armoire.model.dto.response.DesignDTO;
-import com.nala.armoire.model.dto.response.DesignFilterDTO;
 import com.nala.armoire.model.dto.response.DesignListDTO;
 import com.nala.armoire.model.entity.Design;
 import com.nala.armoire.model.entity.DesignCategory;
 import com.nala.armoire.repository.DesignCategoryRepository;
 import com.nala.armoire.repository.DesignRepository;
+import com.nala.armoire.repository.DesignSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -27,126 +25,156 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class DesignService {
 
     private final DesignRepository designRepository;
     private final DesignCategoryRepository designCategoryRepository;
 
-    // ==================== DESIGN CATEGORY METHODS ====================
+    /**
+     * Unified search and filter method for designs.
+     * 
+     * Supports:
+     * - Full-text search across name, description, and tags (case-insensitive)
+     * - Category filtering by slug
+     * - Pagination and sorting via Pageable
+     * - Only returns active designs
+     * 
+     * Uses JPA Specifications for flexible, composable query building.
+     * This approach allows efficient single-query execution regardless of filter combinations.
+     * 
+     * @param categorySlug Optional category slug to filter by
+     * @param searchQuery Optional search text for name/description/tags
+     * @param pageable Pagination and sorting parameters
+     * @return Page of DesignListDTO matching the criteria
+     */
+    public Page<DesignListDTO> searchDesigns(String categorySlug, String searchQuery, Pageable pageable) {
+        log.debug("Searching designs - categorySlug: {}, searchQuery: {}, page: {}, size: {}", 
+                categorySlug, searchQuery, pageable.getPageNumber(), pageable.getPageSize());
 
-    @Cacheable(value = "designCategories", key = "'all'")
-    @Transactional(readOnly = true)
+        // Start with base specification (active designs only)
+        Specification<Design> spec = DesignSpecification.isActive();
+
+        // Add category filter if provided
+        if (categorySlug != null && !categorySlug.trim().isEmpty()) {
+            spec = spec.and(DesignSpecification.hasCategorySlug(categorySlug));
+            log.debug("Applied category filter: {}", categorySlug);
+        }
+
+        // Add search query filter if provided
+        if (searchQuery != null && !searchQuery.trim().isEmpty()) {
+            spec = spec.and(DesignSpecification.searchByQuery(searchQuery));
+            log.debug("Applied search query: {}", searchQuery);
+        }
+
+        // Execute query with specifications
+        Page<Design> designs = designRepository.findAll(spec, pageable);
+        
+        log.info("Found {} designs (page {}/{})", 
+                designs.getTotalElements(), 
+                designs.getNumber() + 1, 
+                designs.getTotalPages());
+
+        // Map to DTOs
+        return designs.map(this::mapToListDTO);
+    }
+
+    /**
+     * Get a single design by ID.
+     * Returns full design details including category information.
+     * 
+     * @param id Design UUID
+     * @return DesignDTO with full details
+     * @throws ResourceNotFoundException if design not found
+     */
+    public DesignDTO getDesignById(UUID id) {
+        log.debug("Fetching design by id: {}", id);
+        
+        Design design = designRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Design not found with id: " + id));
+        
+        log.info("Found design: {} ({})", design.getName(), id);
+        
+        return mapToDTO(design);
+    }
+
+    /**
+     * Get all design categories.
+     * Returns all categories ordered by display order.
+     * 
+     * @return List of DesignCategoryDTO
+     */
     public List<DesignCategoryDTO> getAllCategories() {
-        log.info("Fetching all active design categories");
-
+        log.debug("Fetching all design categories");
+        
         List<DesignCategory> categories = designCategoryRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
-
+        
+        log.info("Found {} design categories", categories.size());
+        
         return categories.stream()
-                .map(this::convertToCategoryDTO)
+                .map(this::mapToCategoryDTO)
                 .collect(Collectors.toList());
     }
 
-    @Cacheable(value = "designCategory", key = "#slug")
-    @Transactional(readOnly = true)
-    public DesignCategoryDTO getCategoryBySlug(String slug) {
-        log.info("Fetching design category by slug: {}", slug);
+    /**
+     * Maps Design entity to DesignListDTO for list views.
+     */
+    private DesignListDTO mapToListDTO(Design design) {
+        // Map category to DesignCategoryDTO
+        DesignCategoryDTO categoryDTO = null;
+        if (design.getCategory() != null) {
+            categoryDTO = DesignCategoryDTO.builder()
+                    .id(design.getCategory().getId())
+                    .name(design.getCategory().getName())
+                    .slug(design.getCategory().getSlug())
+                    .description(design.getCategory().getDescription())
+                    .displayOrder(design.getCategory().getDisplayOrder())
+                    .isActive(design.getCategory().getIsActive())
+                    .createdAt(design.getCategory().getCreatedAt())
+                    .build();
+        }
 
-        DesignCategory category = designCategoryRepository.findBySlug(slug)
-                .orElseThrow(() -> new ResourceNotFoundException("Design category not found: " + slug));
-
-        return convertToCategoryDTO(category);
-
+        return DesignListDTO.builder()
+                .id(design.getId())
+                .name(design.getName())
+                .slug(design.getSlug())
+                .description(design.getDescription())
+                .designPrice(design.getDesignPrice())
+                .designImageUrl(design.getDesignImageUrl())
+                .thumbnailUrl(design.getThumbnailUrl())
+                .tags(parseTags(design.getTags()))
+                .isActive(design.getIsActive())
+                .category(categoryDTO)
+                .createdAt(design.getCreatedAt())
+                .updatedAt(design.getUpdatedAt())
+                .build();
     }
 
-    // ==================== DESIGN METHODS ====================
-
-    @Cacheable(value = "design", key = "#designId")
-    @Transactional(readOnly = true)
-    public DesignDTO getDesignById(UUID designId) {
-        log.info("Fetching design by Id: {}", designId);
-
-        Design design = designRepository.findByIdWithCategory(designId)
-                .orElseThrow(() -> new ResourceNotFoundException("Design not found: " + designId));
-
-        return convertToDesignDTO(design);
+    /**
+     * Maps Design entity to full DesignDTO with all details.
+     */
+    private DesignDTO mapToDTO(Design design) {
+        return DesignDTO.builder()
+                .id(design.getId())
+                .categoryId(design.getCategory() != null ? design.getCategory().getId() : null)
+                .categoryName(design.getCategory() != null ? design.getCategory().getName() : null)
+                .name(design.getName())
+                .slug(design.getSlug())
+                .description(design.getDescription())
+                .designPrice(design.getDesignPrice())
+                .designImageUrl(design.getDesignImageUrl())
+                .thumbnailUrl(design.getThumbnailUrl())
+                .tags(parseTags(design.getTags()))
+                .isActive(design.getIsActive())
+                .createdAt(design.getCreatedAt())
+                .updatedAt(design.getUpdatedAt())
+                .build();
     }
 
-    @Transactional(readOnly = true)
-    public Page<DesignListDTO> getAllDesigns(Integer page, Integer size, String sortBy, String sortDirection) {
-        log.info("Fetching all designs - page: {}, size: {}", page, size);
-
-        Pageable pageable = createPageable(page, size, sortBy, sortDirection);
-        Page<Design> designs = designRepository.findByIsActiveTrue(pageable);
-
-        return designs.map(this::convertToDesignListDto);
-    }
-
-    @Transactional(readOnly = true)
-    public Page<DesignListDTO> getDesignsByCategory(UUID categoryId, Integer page, Integer size) {
-        log.info("Fetching designs for category: {}", categoryId);
-
-        // Verify category exists
-        designCategoryRepository.findById(categoryId)
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + categoryId));
-
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Design> designs = designRepository.findByCategoryId(categoryId, pageable);
-
-        return designs.map(this::convertToDesignListDto);
-    }
-
-    @Transactional(readOnly = true)
-    public Page<DesignListDTO> getDesignsByCategorySlug(String slug, Integer page, Integer size) {
-        log.info("Fetching designs for category slug: {}", slug);
-
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Design> designs = designRepository.findByCategorySlug(slug, pageable);
-
-        return designs.map(this::convertToDesignListDto);
-    }
-
-    @Transactional(readOnly = true)
-    public Page<DesignListDTO> searchDesigns(String searchTerm, Integer page, Integer size) {
-        log.info("Searching designs with term: {}", searchTerm);
-
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Design> designs = designRepository.searchDesigns(searchTerm, pageable);
-
-        return designs.map(this::convertToDesignListDto);
-    }
-
-    // Removed getCompatibleDesigns method - all designs are now compatible with all products
-
-    @Transactional(readOnly = true)
-    public Page<DesignListDTO> filterDesigns(DesignFilterDTO filter) {
-        log.info("Filtering designs with filter: {}", filter);
-
-        Pageable pageable = createPageable(
-                filter.getPage(),
-                filter.getSize(),
-                filter.getSortBy(),
-                filter.getSortDirection());
-
-        // Product category filter removed - all designs work with all products
-        Page<Design> designs = designRepository.findWithFilters(
-                filter.getCategoryId(),
-                filter.getSearchTerm(),
-                pageable);
-
-        return designs.map(this::convertToDesignListDto);
-    }
-
-    private Pageable createPageable(Integer page, Integer size, String sortBy, String sortDirection) {
-        Sort.Direction direction = "ASC".equalsIgnoreCase(sortDirection)
-                ? Sort.Direction.ASC
-                : Sort.Direction.DESC;
-
-        return PageRequest.of(page, size, Sort.by(direction, sortBy));
-    }
-
-    // ===== Helper methods =======
-
-    private DesignCategoryDTO convertToCategoryDTO(DesignCategory category) {
+    /**
+     * Maps DesignCategory entity to DesignCategoryDTO.
+     */
+    private DesignCategoryDTO mapToCategoryDTO(DesignCategory category) {
         return DesignCategoryDTO.builder()
                 .id(category.getId())
                 .name(category.getName())
@@ -158,46 +186,17 @@ public class DesignService {
                 .build();
     }
 
-    private DesignDTO convertToDesignDTO(Design design) {
-        return DesignDTO.builder()
-                .id(design.getId())
-                .categoryId(design.getCategory().getId())
-                .categoryName(design.getCategory().getName())
-                .name(design.getName())
-                .slug(design.getSlug())
-                .description(design.getDescription())
-                .designImageUrl(design.getDesignImageUrl())
-                .thumbnailUrl(design.getThumbnailUrl())
-                .tags(parseTagsFromString(design.getTags()))
-                .designPrice(design.getDesignPrice())
-                .isActive(design.getIsActive())
-                .createdAt(design.getCreatedAt())
-                .updatedAt(design.getUpdatedAt())
-                .build();
-    }
-
-    private DesignListDTO convertToDesignListDto(Design design) {
-        return DesignListDTO.builder()
-                .id(design.getId())
-                .name(design.getName())
-                .slug(design.getSlug())
-                .description(design.getDescription())
-                .designImageUrl(design.getDesignImageUrl())
-                .thumbnailUrl(design.getThumbnailUrl())
-                .category(convertToCategoryDTO(design.getCategory()))
-                .tags(parseTagsFromString(design.getTags()))
-                .designPrice(design.getDesignPrice())
-                .isActive(design.getIsActive())
-                .createdAt(design.getCreatedAt())
-                .updatedAt(design.getUpdatedAt())
-                .build();
-    }
-
-    private List<String> parseTagsFromString(String tags) {
+    /**
+     * Parse comma-separated tags string to list.
+     * 
+     * @param tags Comma-separated tags
+     * @return List of tags
+     */
+    private List<String> parseTags(String tags) {
         if (tags == null || tags.isBlank()) {
-            return Collections.emptyList();
+            return List.of();
         }
-        return List.of(tags.split(",")).stream()
+        return Arrays.stream(tags.split(","))
                 .map(String::trim)
                 .filter(tag -> !tag.isEmpty())
                 .collect(Collectors.toList());

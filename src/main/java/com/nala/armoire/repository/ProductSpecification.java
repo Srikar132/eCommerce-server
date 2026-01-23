@@ -154,4 +154,20 @@ public class ProductSpecification {
             );
         };
     }
+
+    /**
+     * Search products by query in name or description
+     */
+    public static Specification<Product> searchByNameOrDescription(String searchQuery) {
+        return (root, query, cb) -> {
+            if (searchQuery == null || searchQuery.trim().isEmpty()) {
+                return cb.conjunction();
+            }
+            String pattern = "%" + searchQuery.toLowerCase().trim() + "%";
+            return cb.or(
+                    cb.like(cb.lower(root.get("name")), pattern),
+                    cb.like(cb.lower(root.get("description")), pattern)
+            );
+        };
+    }
 }

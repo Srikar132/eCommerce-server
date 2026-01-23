@@ -30,3 +30,14 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Environment Variables ###
+.env
+.env.local
+.env.*.local
+
+### GitHub Secrets ###
+.github/secrets-template.txt
+
+### Docker ###
+*.log
