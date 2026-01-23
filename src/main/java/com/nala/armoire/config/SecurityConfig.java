@@ -58,7 +58,8 @@ public class SecurityConfig {
 
                                 //  razotpay webhook
                                 "/api/v1/webhooks/**",
-                                "/actuator/**"
+                                "/actuator/health",
+                                "/actuator/health/**"
 
                         ).permitAll()
 
