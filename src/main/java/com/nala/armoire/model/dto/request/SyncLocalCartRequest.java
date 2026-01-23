@@ -2,6 +2,7 @@ package com.nala.armoire.model.dto.request;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -34,12 +35,10 @@ public class SyncLocalCartRequest {
         @NotNull(message = "Variant ID is required")
         private java.util.UUID productVariantId;
         
-        private java.util.UUID customizationId;
-        
         @NotNull(message = "Quantity is required")
         private Integer quantity;
         
-        // Local customization data (if not saved to backend yet)
+        // Local customization data (if this is a customized item)
         private LocalCustomizationData customizationData;
     }
     
@@ -48,10 +47,14 @@ public class SyncLocalCartRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class LocalCustomizationData {
+        @NotNull(message = "Design ID is required for customization")
         private java.util.UUID designId;
-        private java.util.UUID variantId;
+        
+        @NotNull(message = "Thread color is required for customization")
+        @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "Thread color must be in hex format (#RRGGBB)")
         private String threadColorHex;
-        private String previewImageBase64; // Base64 encoded preview image
+        
         private String additionalNotes;
     }
 }
+

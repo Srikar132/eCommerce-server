@@ -362,7 +362,8 @@ public class OrderService {
             Map<String, Object> snapshot = new HashMap<>();
             snapshot.put("designId", cartItem.getCustomization().getDesignId());
             snapshot.put("threadColor", cartItem.getCustomization().getThreadColorHex());
-            snapshot.put("previewUrl", cartItem.getCustomization().getPreviewImageUrl());
+            snapshot.put("additionalNotes", cartItem.getCustomization().getAdditionalNotes());
+            
             return objectMapper.writeValueAsString(snapshot);
         } catch (Exception e) {
             log.error("Failed to create customization snapshot", e);

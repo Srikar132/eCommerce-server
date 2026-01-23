@@ -13,15 +13,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,16 +38,15 @@ public class CartService {
 
     private static final int CART_EXPIRY_DAYS = 30;
     private static final BigDecimal CUSTOMIZATION_BASE_PRICE = BigDecimal.valueOf(10.00);
-    private static final String PREVIEW_IMAGE_FILENAME = "preview.png";
 
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
     private final ProductVariantRepository productVariantRepository;
     private final CustomizationRepository customizationRepository;
+    private final DesignRepository designRepository;
     private final UserRepository userRepository;
     private final CartMapper cartMapper;
-    private final S3ImageService s3ImageService;
     private final PricingConfigService pricingConfigService;
     
     private final ConcurrentHashMap<UUID, Object> userLocks = new ConcurrentHashMap<>();
@@ -106,9 +99,6 @@ public class CartService {
         Cart cart = getOrCreateCart(user);
         int removedCount = cart.getItems().size();
         
-        // Delete all customization previews from S3 before clearing
-        cart.getItems().forEach(this::deleteCustomizationPreviewIfExists);
-        
         cart.clearItems();
         cartRepository.save(cart);
         
@@ -151,8 +141,7 @@ public class CartService {
             
             // Add all items WITHOUT saving in between
             for (SyncLocalCartRequest.LocalCartItemRequest localItem : request.getItems()) {
-                UUID customizationId = resolveCustomizationId(user, localItem);
-                AddToCartRequest addRequest = buildAddRequest(localItem, customizationId);
+                AddToCartRequest addRequest = buildAddRequest(localItem, null);
                 addItemWithoutSave(cart, addRequest);
             }
             
@@ -217,7 +206,12 @@ public class CartService {
     private CartResponse addItem(Cart cart, AddToCartRequest request) {
         Product product = findProductById(request.getProductId());
         ProductVariant variant = resolveVariant(request.getProductVariantId(), product);
-        Customization customization = resolveCustomization(request.getCustomizationId());
+        
+        // Create customization if customization data is provided
+        Customization customization = null;
+        if (request.getCustomizationData() != null) {
+            customization = createCustomization(cart.getUser(), request, variant);
+        }
         
         Optional<CartItem> existingItem = findExistingItem(cart, product, variant, customization);
         
@@ -235,7 +229,12 @@ public class CartService {
     private void addItemWithoutSave(Cart cart, AddToCartRequest request) {
         Product product = findProductById(request.getProductId());
         ProductVariant variant = resolveVariant(request.getProductVariantId(), product);
-        Customization customization = resolveCustomization(request.getCustomizationId());
+        
+        // Create customization if customization data is provided
+        Customization customization = null;
+        if (request.getCustomizationData() != null) {
+            customization = createCustomization(cart.getUser(), request, variant);
+        }
         
         Optional<CartItem> existingItem = findExistingItem(cart, product, variant, customization);
         
@@ -321,9 +320,6 @@ public class CartService {
     private CartResponse removeItem(Cart cart, UUID itemId) {
         CartItem item = findCartItem(cart, itemId);
         
-        // Delete customization preview from S3 if exists
-        deleteCustomizationPreviewIfExists(item);
-        
         cart.removeItem(item);
         cartRepository.save(cart);
         
@@ -333,124 +329,31 @@ public class CartService {
 
     // ==================== CUSTOMIZATION HANDLING ====================
 
-    private UUID resolveCustomizationId(User user, SyncLocalCartRequest.LocalCartItemRequest localItem) {
-        if (localItem.getCustomizationId() != null) {
-            return localItem.getCustomizationId();
-        }
+    /**
+     * Creates a new customization from inline data in cart request
+     */
+    private Customization createCustomization(User user, AddToCartRequest request, ProductVariant variant) {
+        AddToCartRequest.CustomizationData data = request.getCustomizationData();
         
-        if (localItem.getCustomizationData() != null) {
-            return saveCustomization(user, localItem);
-        }
+        log.info("Creating customization - userId: {}, designId: {}", user.getId(), data.getDesignId());
         
-        return null;
-    }
-
-    private UUID saveCustomization(User user, SyncLocalCartRequest.LocalCartItemRequest localItem) {
-        SyncLocalCartRequest.LocalCustomizationData data = localItem.getCustomizationData();
-        
-        log.info("Saving customization - userId: {}, designId: {}", user.getId(), data.getDesignId());
+        // Validate design exists
+        designRepository.findById(data.getDesignId())
+                .orElseThrow(() -> new ResourceNotFoundException("Design not found: " + data.getDesignId()));
         
         Customization customization = Customization.builder()
                 .userId(user.getId())
-                .productId(localItem.getProductId())
-                .variantId(localItem.getProductVariantId())
+                .productId(request.getProductId())
+                .variantId(variant.getId())
                 .designId(data.getDesignId())
                 .threadColorHex(data.getThreadColorHex())
+                .additionalNotes(data.getAdditionalNotes())
                 .build();
         
         Customization saved = customizationRepository.save(customization);
-        uploadPreviewImage(user, saved, data.getPreviewImageBase64());
+        log.info("Customization created - customizationId: {}", saved.getId());
         
-        log.info("Customization saved - customizationId: {}", saved.getId());
-        return saved.getId();
-    }
-
-    private void uploadPreviewImage(User user, Customization customization, String base64Data) {
-        if (base64Data == null || base64Data.isEmpty()) {
-            return;
-        }
-        
-        try {
-            MultipartFile imageFile = convertBase64ToMultipartFile(base64Data);
-            var uploadResponse = s3ImageService.uploadCustomizationPreview(
-                    imageFile, user.getId(), customization.getId());
-            
-            customization.setPreviewImageUrl(uploadResponse.getImageUrl());
-            customizationRepository.save(customization);
-            
-            log.info("Preview uploaded - customizationId: {}, url: {}", 
-                    customization.getId(), uploadResponse.getImageUrl());
-            
-        } catch (Exception e) {
-            log.error("Failed to upload preview - customizationId: {}", customization.getId(), e);
-        }
-    }
-
-    private MultipartFile convertBase64ToMultipartFile(String base64Data) {
-        String base64String = base64Data.contains(",") ? base64Data.split(",")[1] : base64Data;
-        byte[] imageBytes = Base64.getDecoder().decode(base64String);
-        return new Base64MultipartFile(imageBytes, PREVIEW_IMAGE_FILENAME);
-    }
-
-    /**
-     * Deletes customization preview image from S3 storage when cart item is removed
-     */
-    private void deleteCustomizationPreviewIfExists(CartItem item) {
-        if (item.getCustomization() == null) {
-            return;
-        }
-        
-        String previewImageUrl = item.getCustomization().getPreviewImageUrl();
-        if (previewImageUrl == null || previewImageUrl.isEmpty()) {
-            return;
-        }
-        
-        try {
-            // Extract S3 key from URL
-            // URL format: https://bucket.s3.region.amazonaws.com/customizations/userId/fileName
-            // or CDN format: https://cloudfront-domain/customizations/userId/fileName
-            String s3Key = extractS3KeyFromUrl(previewImageUrl);
-            
-            if (s3Key != null && !s3Key.isEmpty()) {
-                s3ImageService.deleteCustomizationPreview(s3Key);
-                log.info("Deleted customization preview - customizationId: {}, s3Key: {}", 
-                        item.getCustomization().getId(), s3Key);
-            }
-        } catch (Exception e) {
-            // Log but don't fail the cart operation
-            log.warn("Failed to delete customization preview - customizationId: {}, url: {}", 
-                    item.getCustomization().getId(), previewImageUrl, e);
-        }
-    }
-
-    /**
-     * Extracts S3 key from full URL
-     * Handles both direct S3 URLs and CloudFront CDN URLs
-     */
-    private String extractS3KeyFromUrl(String url) {
-        if (url == null || url.isEmpty()) {
-            return null;
-        }
-        
-        try {
-            // Remove protocol and domain, keep only the path
-            // Example: https://domain.com/customizations/userId/file.png -> customizations/userId/file.png
-            int pathStartIndex = url.indexOf("customizations/");
-            if (pathStartIndex != -1) {
-                return url.substring(pathStartIndex);
-            }
-            
-            // Fallback: try to extract everything after the last domain segment
-            String[] parts = url.split("/", 4);
-            if (parts.length >= 4) {
-                return parts[3]; // Return path after domain
-            }
-            
-            return null;
-        } catch (Exception e) {
-            log.warn("Failed to extract S3 key from URL: {}", url, e);
-            return null;
-        }
+        return saved;
     }
 
     // ==================== HELPER METHODS ====================
@@ -479,13 +382,6 @@ public class CartService {
         }
         
         return variant;
-    }
-
-    private Customization resolveCustomization(UUID customizationId) {
-        return customizationId != null 
-                ? customizationRepository.findById(customizationId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Customization not found: " + customizationId))
-                : null;
     }
 
     private Optional<CartItem> findExistingItem(Cart cart, Product product, 
@@ -518,69 +414,22 @@ public class CartService {
 
     private AddToCartRequest buildAddRequest(SyncLocalCartRequest.LocalCartItemRequest localItem, 
                                             UUID customizationId) {
-        String additionalNotes = null;
+        // Build customization data if present
+        AddToCartRequest.CustomizationData customizationData = null;
         if (localItem.getCustomizationData() != null) {
-            additionalNotes = localItem.getCustomizationData().getAdditionalNotes();
+            SyncLocalCartRequest.LocalCustomizationData localData = localItem.getCustomizationData();
+            customizationData = AddToCartRequest.CustomizationData.builder()
+                    .designId(localData.getDesignId())
+                    .threadColorHex(localData.getThreadColorHex())
+                    .additionalNotes(localData.getAdditionalNotes())
+                    .build();
         }
         
         return AddToCartRequest.builder()
                 .productId(localItem.getProductId())
                 .productVariantId(localItem.getProductVariantId())
-                .customizationId(customizationId)
+                .customizationData(customizationData)
                 .quantity(localItem.getQuantity())
-                .additionalNotes(additionalNotes)
                 .build();
-    }
-
-    // ==================== INNER CLASS ====================
-
-    private static class Base64MultipartFile implements MultipartFile {
-        private final byte[] content;
-        private final String name;
-        
-        Base64MultipartFile(byte[] content, String name) {
-            this.content = content;
-            this.name = name;
-        }
-        
-        @Override
-        public String getName() {
-            return name;
-        }
-        
-        @Override
-        public String getOriginalFilename() {
-            return name;
-        }
-        
-        @Override
-        public String getContentType() {
-            return "image/png";
-        }
-        
-        @Override
-        public boolean isEmpty() {
-            return content == null || content.length == 0;
-        }
-        
-        @Override
-        public long getSize() {
-            return content.length;
-        }
-        
-        @Override
-        public byte[] getBytes() {
-            return content;
-        }
-        
-        @Override
-        public InputStream getInputStream() {
-            return new ByteArrayInputStream(content);
-        }
-        
-        @Override
-        public void transferTo(File dest) throws IOException {
-            throw new UnsupportedOperationException("transferTo not supported");
-        }
     }
 }

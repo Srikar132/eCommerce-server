@@ -21,11 +21,6 @@ public class SaveCustomizationResponse {
     private UUID id;
 
     /**
-     * The preview image URL that was saved
-     */
-    private String previewImageUrl;
-
-    /**
      * When the customization was created
      */
     private LocalDateTime createdAt;

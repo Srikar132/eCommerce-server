@@ -84,7 +84,6 @@ public class CartMapper {
                 .variantId(customization.getVariantId())
                 .designId(customization.getDesignId())
                 .threadColorHex(customization.getThreadColorHex())
-                .previewImageUrl(customization.getPreviewImageUrl())
                 .additionalNotes(customization.getAdditionalNotes())
                 .build();
     }

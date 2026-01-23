@@ -37,9 +37,6 @@ public class Customization {
     private String threadColorHex;
 
     @Column(length = 500)
-    private String previewImageUrl;
-
-    @Column(length = 500)
     private String additionalNotes;
 
     @CreationTimestamp
