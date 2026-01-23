@@ -8,6 +8,8 @@ import com.nala.armoire.model.entity.*;
 import com.nala.armoire.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -32,7 +34,7 @@ public class ProductService {
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final OrderItemRepository orderItemRepository;
-    // REMOVED: productImageRepository (images are now fetched via variants)
+    
 
     @Transactional(readOnly = true)
     public PagedResponse<ProductDTO> getProducts(
@@ -139,16 +141,28 @@ public class ProductService {
         return validFields.contains(field);
     }
 
+    /**
+     * Get product by slug with Redis caching
+     * Cache TTL: 10 minutes (configured in RedisConfig)
+     */
+    @Cacheable(value = "products", key = "#slug")
     @Transactional(readOnly = true)
     public ProductDTO getProductBySlug(String slug) {
+        log.info("Fetching product from database for slug: {}", slug);
         Product product = productRepository.findBySlugAndIsActiveTrueAndIsDraftFalse(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product Not found"));
 
         return mapToProductDTO(product);
     }
 
+    /**
+     * Get product variants with Redis caching
+     * Cache TTL: 10 minutes (configured in RedisConfig)
+     */
+    @Cacheable(value = "productVariants", key = "#slug")
     @Transactional(readOnly = true)
     public List<ProductVariantDTO> getProductVariants(String slug) {
+        log.info("Fetching product variants from database for slug: {}", slug);
         Product product = productRepository.findBySlugAndIsActiveTrueAndIsDraftFalse(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product Not found"));
 
@@ -168,8 +182,14 @@ public class ProductService {
         return reviews.map(this::mapToReviewDTO);
     }
 
+    /**
+     * Add product review and evict product cache
+     * This evicts the cached product since review affects average rating
+     */
+    @CacheEvict(value = "products", key = "#slug")
     @Transactional
     public ReviewDTO addProductReview(String slug, UUID userId, AddReviewRequest request) {
+        log.info("Adding review for product slug: {} - will evict cache", slug);
         Product product = productRepository.findBySlugAndIsActiveTrueAndIsDraftFalse(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
@@ -295,7 +315,13 @@ public class ProductService {
 
     /**
      * Search products with facets for filtering
+     * Cache TTL: 5 minutes (configured in RedisConfig)
+     * Cache key includes all filter parameters to ensure correct results
      */
+    @Cacheable(
+        value = "productSearch",
+        key = "T(java.util.Objects).hash(#categorySlugs, #brandSlugs, #minPrice, #maxPrice, #sizes, #colors, #isCustomizable, #searchQuery, #pageable.pageNumber, #pageable.pageSize, #pageable.sort)"
+    )
     @Transactional(readOnly = true)
     public ProductSearchResponse searchProductsWithFacets(
             List<String> categorySlugs,
@@ -308,7 +334,7 @@ public class ProductService {
             String searchQuery,
             Pageable pageable) {
 
-        log.info("Searching products with facets - category: {}, brand: {}, query: {}", 
+        log.info("Fetching products from database - category: {}, brand: {}, query: {}", 
                 categorySlugs, brandSlugs, searchQuery);
 
         // Build specification for filtering
@@ -410,11 +436,13 @@ public class ProductService {
     }
 
     /**
-     * Get product name autocomplete suggestions
+     * Get product name autocomplete suggestions with Redis caching
+     * Cache TTL: 10 minutes (configured in RedisConfig)
      */
+    @Cacheable(value = "autocomplete", key = "#query + '_' + #limit")
     @Transactional(readOnly = true)
     public List<String> getProductAutocomplete(String query, Integer limit) {
-        log.info("Getting autocomplete for query: {}", query);
+        log.info("Fetching autocomplete from database for query: {}", query);
 
         if (query == null || query.trim().isEmpty()) {
             return List.of();
