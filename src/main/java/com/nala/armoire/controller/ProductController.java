@@ -4,7 +4,6 @@ import com.nala.armoire.annotation.CurrentUser;
 import com.nala.armoire.model.dto.request.AddReviewRequest;
 import com.nala.armoire.model.dto.response.*;
 import com.nala.armoire.security.UserPrincipal;
-import com.nala.armoire.service.ProductSearchService;
 import com.nala.armoire.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,12 +27,11 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
-    private final ProductSearchService productSearchService;
 
 
 
     /**
-     * GET /api/v1/products - Search & Filter Products (Elasticsearch)
+     * GET /api/v1/products - Search & Filter Products
      *
      * Examples:
      * - /api/v1/products?category=men-tshirts
@@ -55,7 +53,7 @@ public class ProductController {
     ) {
         log.info("GET /api/v1/products - category: {}, searchQuery: {}", category, searchQuery);
 
-        ProductSearchResponse response = productSearchService.getProducts(
+        ProductSearchResponse response = productService.searchProductsWithFacets(
                 category, brand, minPrice, maxPrice, productSize, color,
                 customizable, searchQuery, pageable
         );
@@ -76,7 +74,7 @@ public class ProductController {
     ) {
         log.info("GET /api/v1/products/autocomplete - query: {}", query);
 
-        List<String> suggestions = productSearchService.getAutocomplete(query, limit);
+        List<String> suggestions = productService.getProductAutocomplete(query, limit);
 
         return ResponseEntity.ok(suggestions);
     }

@@ -1,6 +1,5 @@
 package com.nala.armoire.model.entity;
 
-import com.nala.armoire.listener.DesignEntityListener;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -11,7 +10,6 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "designs")
-@EntityListeners(DesignEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

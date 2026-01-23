@@ -37,7 +37,6 @@ public class AdminProductService {
     private final ProductVariantRepository productVariantRepository;
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
-    private final ProductSyncService productSyncService;
     private final EmailService emailService;
 
     @Value("${admin.email}")
@@ -122,7 +121,6 @@ public class AdminProductService {
 
         // Sync to Elasticsearch if not draft
         if (!savedProduct.getIsDraft()) {
-            productSyncService.syncProduct(savedProduct.getId());
         }
 
         log.info("Created product {} with {} variants", 
@@ -227,11 +225,9 @@ public class AdminProductService {
 
         // Sync to Elasticsearch only if not a draft
         if (!savedProduct.getIsDraft()) {
-            productSyncService.syncProduct(savedProduct.getId());
         } else {
             // If product became draft, remove from Elasticsearch
             try {
-                productSyncService.deleteProduct(savedProduct.getId());
             } catch (Exception e) {
                 log.warn("Failed to remove draft product from Elasticsearch: {}", e.getMessage());
             }
@@ -277,7 +273,6 @@ public class AdminProductService {
         productRepository.save(product);
 
         if (!product.getIsDraft()) {
-            productSyncService.syncProduct(product.getId());
         }
 
         log.info("Admin: Added variant to product: {}", productId);
@@ -320,7 +315,6 @@ public class AdminProductService {
 
         Product product = variant.getProduct();
         if (!product.getIsDraft()) {
-            productSyncService.syncProduct(product.getId());
         }
 
         log.info("Admin: Updated variant: {}", variantId);
@@ -341,7 +335,6 @@ public class AdminProductService {
         productRepository.save(product);
 
         if (!product.getIsDraft()) {
-            productSyncService.syncProduct(product.getId());
         }
 
         log.info("Admin: Deleted variant: {}", variantId);
@@ -378,7 +371,6 @@ public class AdminProductService {
 
         // Sync to Elasticsearch only if not a draft
         if (!savedProduct.getIsDraft()) {
-            productSyncService.syncProduct(savedProduct.getId());
         }
 
         log.info("Admin: Created product: {} (draft: {})", savedProduct.getName(), savedProduct.getIsDraft());
@@ -445,11 +437,9 @@ public class AdminProductService {
 
         // Sync to Elasticsearch only if not a draft
         if (!savedProduct.getIsDraft()) {
-            productSyncService.syncProduct(savedProduct.getId());
         } else {
             // If product became draft, remove from Elasticsearch
             try {
-                productSyncService.deleteProduct(savedProduct.getId());
             } catch (Exception e) {
                 log.warn("Failed to remove draft product from Elasticsearch: {}", e.getMessage());
             }
@@ -473,7 +463,6 @@ public class AdminProductService {
 
         // Sync to Elasticsearch only if not a draft
         if (!product.getIsDraft()) {
-            productSyncService.syncProduct(product.getId());
         }
 
         log.info("Admin: Toggled product status: {}, active: {}, draft: {}",
@@ -491,7 +480,6 @@ public class AdminProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
         // Delete from Elasticsearch first
-        productSyncService.deleteProduct(productId);
 
         // Delete from database
         productRepository.delete(product);
@@ -550,7 +538,6 @@ public class AdminProductService {
         productVariantRepository.save(variant);
 
         // Sync product to Elasticsearch
-        productSyncService.syncProduct(variant.getProduct().getId());
 
         log.info("Admin: Updated variant stock: {}, old: {}, new: {}",
                 variantId, oldStock, newStock);
@@ -602,7 +589,6 @@ public class AdminProductService {
         productRepository.save(product);
 
         // Sync to Elasticsearch
-        productSyncService.syncProduct(product.getId());
 
         log.info("Admin: Published product: {}", product.getId());
 
@@ -626,7 +612,6 @@ public class AdminProductService {
         productRepository.save(product);
 
         // Remove from Elasticsearch
-        productSyncService.deleteProduct(product.getId());
 
         log.info("Admin: Unpublished product: {}", product.getId());
 

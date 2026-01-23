@@ -1,13 +1,14 @@
-version: "3.8"
+version: '3.8'
 
 services:
+  # Elasticsearch Service
   elasticsearch:
     image: elastic/elasticsearch:9.1.8
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms128m -Xmx128m
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
       - "9600:9200"
       - "9601:9300"
@@ -15,37 +16,75 @@ services:
       - esdata:/usr/share/elasticsearch/data
     networks:
       - armoire-network
-    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 10
-      start_period: 90s
+      retries: 5
 
+  # Spring Boot Backend Service
   backend:
-    image: srikar77115/nala-armoire-backend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: armoire-backend
     ports:
       - "8080:8080"
-    env_file:
-      - .env
     environment:
+      # Spring Profile
       - SPRING_PROFILES_ACTIVE=docker
+      
+      # Database Configuration (from .env file)
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_USERNAME=${DATABASE_USERNAME}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      
+      # JWT Configuration
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_TOKEN_EXPIRATION=${JWT_ACCESS_TOKEN_EXPIRATION:-900000}
+      - JWT_REFRESH_TOKEN_EXPIRATION=${JWT_REFRESH_TOKEN_EXPIRATION:-604800000}
+      - JWT_COOKIE_SECURE=${JWT_COOKIE_SECURE:-false}
+      
+      # Elasticsearch Configuration
       - ELASTICSEARCH_URIS=http://elasticsearch:9200
-      - JAVA_OPTS=-Xms128m -Xmx384m
+      
+      # Mail Configuration
+      - MAIL_HOST=${MAIL_HOST:-smtp.gmail.com}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      
+      # AWS Configuration
+      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
+      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
+      - AWS_REGION=${AWS_REGION:-eu-north-1}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
+      - AWS_CLOUDFRONT_DOMAIN=${AWS_CLOUDFRONT_DOMAIN}
+      
+      # Frontend URL
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      
+      # Razorpay Configuration
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      
+      # Admin Email
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      
+      # Java Options
+      - JAVA_OPTS=-Xms512m -Xmx1024m
     depends_on:
       elasticsearch:
         condition: service_healthy
     networks:
       - armoire-network
-    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 10
-      start_period: 120s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
 
 networks:
   armoire-network:

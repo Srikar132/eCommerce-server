@@ -52,6 +52,9 @@ public class SecurityConfig {
                                 "/api/v1/designs/**",
                                 "/api/v1/design-categories/**",
                                 "/health",
+                                // Actuator endpoints
+                                "/actuator/**",
+                                "/actuator/health",
                                 // swagger-ui
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",

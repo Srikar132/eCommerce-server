@@ -2,11 +2,21 @@ package com.nala.armoire.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "wishlists")
+@Table(name = "wishlists", 
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_user_product", columnNames = {"user_id", "product_id"})
+    },
+    indexes = {
+        @Index(name = "idx_user_wishlist", columnList = "user_id"),
+        @Index(name = "idx_product_wishlist", columnList = "product_id")
+    }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -17,16 +27,15 @@ public class WishList {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    // Many wishlist records can belong to one user
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // Many wishlist records can refer to one product
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    @Column(name = "created_at", updatable = false)
-    private final LocalDateTime createdAt = LocalDateTime.now();
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 }
