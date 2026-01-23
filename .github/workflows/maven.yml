@@ -15,11 +15,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # checkout code
+      # Checkout code
       - name: Checkout source
         uses: actions/checkout@v4
 
-      #  Setup Java
+      # Setup Java
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
@@ -27,11 +27,11 @@ jobs:
           java-version: "17"
           cache: maven
 
-      #  Build backend
+      # Build backend
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
-      #  Login to Docker Hub (secure)
+      # Login to Docker Hub (secure)
       - name: Login to Docker Hub
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | \
@@ -67,7 +67,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      #   Deploy (ZERO-DOWNTIME)
+      # Deploy (ZERO-DOWNTIME)
       - name: Deploy backend on EC2
         run: |
           ssh ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
@@ -109,33 +109,47 @@ jobs:
             docker-compose logs --tail=20 backend
           EOF
 
-      #  Health check
+      # Health check with improved diagnostics
       - name: Backend health check
         run: |
           echo "Waiting for backend to become healthy..."
-          sleep 30
+          sleep 45  # Increased initial wait time
 
-          for i in {1..15}; do
-            echo "Health check attempt $i/15..."
-            STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://${{ secrets.EC2_HOST }}:8080/actuator/health || echo "000")
+          for i in {1..20}; do  # Increased attempts
+            echo "Health check attempt $i/20..."
+          
+            # Try health endpoint
+            STATUS=$(curl -o /dev/null -s -w "%{http_code}" \
+              http://${{ secrets.EC2_HOST }}:8080/actuator/health || echo "000")
             echo "Response status: $STATUS"
           
             if [ "$STATUS" = "200" ]; then
               echo "✅ Backend is healthy!"
-              curl -s http://${{ secrets.EC2_HOST }}:8080/actuator/health
+              curl -s http://${{ secrets.EC2_HOST }}:8080/actuator/health | jq '.' || curl -s http://${{ secrets.EC2_HOST }}:8080/actuator/health
               exit 0
             fi
           
-            echo "⏳ Backend not ready yet (status=$STATUS). Retrying in 10s..."
-            sleep 10
+            # Show recent logs on failure
+            if [ $i -eq 10 ]; then
+              echo "⚠️ Still not healthy after 10 attempts. Checking logs..."
+              ssh ec2-user@${{ secrets.EC2_HOST }} \
+                "cd /home/ec2-user/armoire && docker-compose logs --tail=30 backend"
+            fi
+          
+            echo "⏳ Backend not ready yet (status=$STATUS). Retrying in 15s..."
+            sleep 15
           done
 
-          echo "❌ Health check failed after 15 attempts"
-          echo "Checking backend logs..."
+          echo "❌ Health check failed after 20 attempts"
+          echo "Final container status:"
+          ssh ec2-user@${{ secrets.EC2_HOST }} "cd /home/ec2-user/armoire && docker-compose ps"
+          echo "Elasticsearch logs:"
+          ssh ec2-user@${{ secrets.EC2_HOST }} "cd /home/ec2-user/armoire && docker-compose logs --tail=30 elasticsearch"
+          echo "Backend logs:"
           ssh ec2-user@${{ secrets.EC2_HOST }} "cd /home/ec2-user/armoire && docker-compose logs --tail=50 backend"
           exit 1
 
-      #  Cleanup
+      # Cleanup
       - name: Cleanup SSH
         if: always()
         run: rm -rf ~/.ssh
