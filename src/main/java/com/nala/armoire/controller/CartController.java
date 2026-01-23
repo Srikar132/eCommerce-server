@@ -74,7 +74,6 @@ public class CartController {
                 userPrincipal.getId(),
                 request.getProductId(),
                 request.getProductVariantId(),
-                request.getCustomizationId(),
                 request.getQuantity());
 
         CartResponse cart = cartService.addItemToCartByUserId(userPrincipal.getId(), request);

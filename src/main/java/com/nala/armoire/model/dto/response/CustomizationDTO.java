@@ -21,7 +21,6 @@ public class CustomizationDTO {
     private UUID variantId;
     private UUID designId;
     private String threadColorHex;
-    private String previewImageUrl;
     private String additionalNotes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
