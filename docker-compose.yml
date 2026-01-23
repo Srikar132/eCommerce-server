@@ -7,7 +7,7 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+      - ES_JAVA_OPTS=-Xms128m -Xmx128m
     ports:
       - "9600:9200"
       - "9601:9300"
@@ -15,17 +15,13 @@ services:
       - esdata:/usr/share/elasticsearch/data
     networks:
       - armoire-network
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-        reservations:
-          memory: 256m
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 10
+      start_period: 90s
 
   backend:
     image: srikar77115/nala-armoire-backend:latest
@@ -37,90 +33,19 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - ELASTICSEARCH_URIS=http://elasticsearch:9200
-      - JAVA_OPTS=-Xms256m -Xmx512m
+      - JAVA_OPTS=-Xms128m -Xmx384m
     depends_on:
       elasticsearch:
         condition: service_healthy
     networks:
       - armoire-network
-    deploy:
-      resources:version: "3.8"
-
-services:
-  elasticsearch:
-    image: elastic/elasticsearch:9.1.8
-    container_name: elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
-    ports:
-      - "9600:9200"
-      - "9601:9300"
-    volumes:
-      - esdata:/usr/share/elasticsearch/data
-    networks:
-      - armoire-network
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-        reservations:
-          memory: 256m
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  backend:
-    image: srikar77115/nala-armoire-backend:latest
-    container_name: armoire-backend
-    ports:
-      - "8080:8080"
-    env_file:
-      - .env
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - ELASTICSEARCH_URIS=http://elasticsearch:9200
-      - JAVA_OPTS=-Xms256m -Xmx512m
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    networks:
-      - armoire-network
-    deploy:
-      resources:
-        limits:
-          memory: 1024m
-        reservations:
-          memory: 512m
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 60s
-
-networks:
-  armoire-network:
-    driver: bridge
-
-volumes:
-  esdata:
-    driver: local
-        limits:
-          memory: 1024m
-        reservations:
-          memory: 512m
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      retries: 10
+      start_period: 120s
 
 networks:
   armoire-network:
