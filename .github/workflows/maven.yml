@@ -30,8 +30,8 @@ jobs:
 
       - name: Login to Docker Hub
         run: |
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | \
-          docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          echo "${{ secrets.DOCKER_PASSWORD }}" | \
+          docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
       - name: Build Docker image
         run: |
@@ -55,21 +55,21 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           cat << 'EOF' > ~/.ssh/id_rsa
-          ${{ secrets.EC2_SSH_KEY }}
+          ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           EOF
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy on EC2
         run: |
-          ssh ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
             cd /home/ec2-user/nala-armorie
 
-            echo "Pulling latest image..."
+            echo "Pulling latest Docker image..."
             docker compose pull
 
-            echo "Starting services..."
+            echo "Starting containers..."
             docker compose up -d
 
             echo "Running containers:"
@@ -96,7 +96,7 @@ jobs:
           done
 
           echo "❌ Health check failed"
-          ssh ec2-user@${{ secrets.EC2_HOST }} \
+          ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} \
             "cd /home/ec2-user/nala-armorie && docker compose logs --tail=50 armoire-backend"
           exit 1
 
