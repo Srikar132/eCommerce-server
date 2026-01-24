@@ -11,43 +11,52 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.UUID;
 
+/**
+ * UserPrincipal for Phone-based OTP Authentication
+ * No password required
+ */
 @Data
 @AllArgsConstructor
 public class UserPrincipal implements UserDetails {
 
     private UUID id;
-    private String email;
-    private String password;
+    private String phone;
     private Collection<? extends GrantedAuthority> authorities;
 
+    /**
+     * Create UserPrincipal from User entity
+     */
     public static UserPrincipal create(User user) {
         return new UserPrincipal(
                 user.getId(),
-                user.getEmail(),
-                user.getPassword(),
+                user.getPhone(),
                 Collections.singletonList(
-                        new SimpleGrantedAuthority("ROLE_" + (user.getRole() == null ? "USER" : user.getRole()))
+                        new SimpleGrantedAuthority("ROLE_" + (user.getRole() == null ? "CUSTOMER" : user.getRole()))
                 )
         );
     }
 
-    // IMPORTANT: return the stored authorities
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return this.authorities;
     }
 
+    /**
+     * No password in phone OTP authentication
+     */
     @Override
     public String getPassword() {
-        return this.password;
+        return null; // No password for OTP-based auth
     }
 
+    /**
+     * Username is the phone number
+     */
     @Override
     public String getUsername() {
-        return this.email;
+        return this.phone;
     }
 
-    // Default implementations — change if you support account locking/expiry
     @Override
     public boolean isAccountNonExpired() {
         return true;
@@ -68,3 +77,4 @@ public class UserPrincipal implements UserDetails {
         return true;
     }
 }
+

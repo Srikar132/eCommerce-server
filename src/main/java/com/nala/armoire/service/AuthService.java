@@ -2,177 +2,162 @@ package com.nala.armoire.service;
 
 import com.nala.armoire.exception.BadRequestException;
 import com.nala.armoire.exception.ResourceNotFoundException;
-import com.nala.armoire.model.dto.request.*;
 import com.nala.armoire.exception.UnauthorizedException;
+import com.nala.armoire.model.dto.request.SendOtpRequest;
+import com.nala.armoire.model.dto.request.VerifyOtpRequest;
 import com.nala.armoire.model.dto.response.MessageResponse;
+import com.nala.armoire.model.dto.response.SendOtpResponse;
 import com.nala.armoire.model.dto.response.UserResponse;
 import com.nala.armoire.model.entity.RefreshToken;
 import com.nala.armoire.model.entity.User;
-import com.nala.armoire.model.entity.UserRole;
 import com.nala.armoire.repository.RefreshTokenRepository;
 import com.nala.armoire.repository.UserRepository;
 import com.nala.armoire.security.JwtTokenProvider;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Authentication Service with Phone OTP
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final OtpService otpService;
+    private final SmsService smsService;
     private final JwtTokenProvider tokenProvider;
-    private final AuthenticationManager authenticationManager;
-    private final PasswordEncoder passwordEncoder;
-    private final EmailService emailService;
+
+    @Value("${otp.expiration:300}")
+    private int otpExpiration;
 
     @Value("${jwt.refresh-token-expiration}")
     private Long refreshTokenExpiration;
 
-    @Value("${app.verification-token-expiration}")
-    private Long verificationTokenExpiration;
-
+    /**
+     * Send OTP to phone number
+     * Creates user if doesn't exist
+     */
     @Transactional
-    public TokenPair register(RegisterRequest request) {
-        try {
-            // Check if email already exists
-            if(userRepository.existsByEmail(request.getEmail())) {
-                log.warn("Registration attempt with existing email: {}", request.getEmail());
-                throw new BadRequestException("This email is already registered. Please login or use a different email.");
-            }
+    public SendOtpResponse sendOtp(SendOtpRequest request) {
+        // 1. Validate and format phone number
+        String formattedPhone = validateAndFormatPhone(request.getPhone());
 
-            // Create user
-            User user = User.builder()
-                    .email(request.getEmail())
-                    .password(passwordEncoder.encode(request.getPassword()))
-                    .phone(request.getPhone())
-                    .userName(request.getUsername())
-                    .role(UserRole.CUSTOMER)
-                    .isActive(true)
-                    .emailVerified(false)
-                    .verificationToken(UUID.randomUUID().toString())
-                    .verificationTokenExpiresAt(
-                            LocalDateTime.now().plusSeconds(verificationTokenExpiration / 1000)
-                    ).build();
+        // 2. Check if user exists, create if not
+        User user = userRepository.findByPhone(formattedPhone)
+            .orElseGet(() -> createPendingUser(formattedPhone));
 
-            user = userRepository.save(user);
+        // 3. Check if account is blocked
+        if (!user.getIsActive()) {
+            throw new BadRequestException("Account is inactive. Please contact support.");
+        }
+
+        // 4. Send OTP
+        otpService.sendOtp(formattedPhone);
+
+        log.info("OTP sent to phone: {}", maskPhone(formattedPhone));
+
+        return SendOtpResponse.builder()
+            .success(true)
+            .message("OTP sent successfully")
+            .expiresIn(otpExpiration)
+            .maskedPhone(maskPhone(formattedPhone))
+            .build();
+    }
+
+    /**
+     * Verify OTP and login/register user
+     */
+    @Transactional
+    public TokenPair verifyOtpAndLogin(VerifyOtpRequest request) {
+        // 1. Validate phone number
+        String formattedPhone = validateAndFormatPhone(request.getPhone());
+
+        // 2. Verify OTP
+        otpService.verifyOtp(formattedPhone, request.getOtp());
+
+        // 3. Find or create user
+        User user = userRepository.findByPhone(formattedPhone)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found. Please request OTP again."));
+
+        // 4. Check if account is active
+        if (!user.getIsActive()) {
+            throw new UnauthorizedException("Account is inactive. Please contact support.");
+        }
+
+        // 5. Mark phone as verified
+        if (Boolean.FALSE.equals(user.getPhoneVerified())) {
+            user.setPhoneVerified(true);
+            user.setPhoneVerifiedAt(LocalDateTime.now());
             
-            log.info("New user registered successfully: {}", user.getEmail());
-            
-            // Send verification email
+            // Send welcome SMS for new users
             try {
-                emailService.sendVerificationEmail(user);
+                smsService.sendWelcomeSms(formattedPhone, user.getUserName());
             } catch (Exception e) {
-                log.error("Failed to send verification email to: {}", user.getEmail(), e);
-                // Don't fail registration if email fails
+                log.warn("Failed to send welcome SMS: {}", e.getMessage());
             }
-
-            return generateTokenPair(user);
-            
-        } catch (BadRequestException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Unexpected error during registration: {}", ex.getMessage(), ex);
-            throw new BadRequestException("Registration failed. Please try again.");
         }
+
+        // 6. Reset failed login attempts
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        userRepository.save(user);
+
+        // 7. Generate tokens
+        return generateTokenPair(user);
     }
 
-    @Transactional
-    public TokenPair login(LoginRequest request) {
-        try {
-            // First check if user exists
-            User user = userRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new UnauthorizedException("Invalid email or password"));
-
-            // Check if account is active
-            if(!user.getIsActive()) {
-                throw new UnauthorizedException("Your account has been deactivated. Please contact support.");
-            }
-
-            // Check if email is verified (optional - uncomment if you want to enforce this)
-            // if(!user.getEmailVerified()) {
-            //     throw new UnauthorizedException("Please verify your email before logging in. Check your inbox for the verification link.");
-            // }
-
-            // Authenticate user
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            request.getEmail(),
-                            request.getPassword()
-                    )
-            );
-
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            return generateTokenPair(user);
-            
-        } catch (org.springframework.security.authentication.BadCredentialsException ex) {
-            log.warn("Failed login attempt for email: {}", request.getEmail());
-            throw new UnauthorizedException("Invalid email or password. Please check your credentials and try again.");
-        } catch (org.springframework.security.authentication.DisabledException ex) {
-            log.warn("Disabled account login attempt: {}", request.getEmail());
-            throw new UnauthorizedException("Your account has been disabled. Please contact support.");
-        } catch (org.springframework.security.authentication.LockedException ex) {
-            log.warn("Locked account login attempt: {}", request.getEmail());
-            throw new UnauthorizedException("Your account has been locked. Please contact support or try again later.");
-        } catch (UnauthorizedException ex) {
-            // Re-throw our custom exceptions
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Unexpected error during login: {}", ex.getMessage(), ex);
-            throw new UnauthorizedException("Login failed. Please try again.");
-        }
-    }
-
+    /**
+     * Refresh access token
+     */
     @Transactional
     public TokenPair refreshToken(String refreshTokenString) {
         try {
-            // Validate the refresh token
-            if(!tokenProvider.validateToken(refreshTokenString)) {
-                log.warn("Invalid refresh token provided");
-                throw new UnauthorizedException("Invalid or expired refresh token. Please login again.");
+            // 1. Validate the refresh token
+            if (!tokenProvider.validateToken(refreshTokenString)) {
+                throw new UnauthorizedException("Invalid refresh token");
             }
 
-            // Find refresh token in the database
+            // 2. Find refresh token in the database
             RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenString)
-                    .orElseThrow(() -> new UnauthorizedException("Refresh token not found. Please login again."));
+                .orElseThrow(() -> new UnauthorizedException("Refresh token not found. Please login again."));
 
-            // Check if revoked or expired
-            if(refreshToken.getRevoked()) {
-                log.warn("Revoked refresh token used: {}", refreshToken.getToken());
+            // 3. Check if revoked or expired
+            if (refreshToken.getRevoked()) {
                 throw new UnauthorizedException("Refresh token has been revoked. Please login again.");
             }
             
-            if(refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
-                log.warn("Expired refresh token used");
+            if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+                refreshTokenRepository.delete(refreshToken);
                 throw new UnauthorizedException("Refresh token has expired. Please login again.");
             }
 
-            // Get user
+            // 4. Get user
             User user = refreshToken.getUser();
             
-            if(!user.getIsActive()) {
-                log.warn("Inactive user attempted token refresh: {}", user.getEmail());
-                throw new UnauthorizedException("Your account has been deactivated. Please contact support.");
+            if (!user.getIsActive()) {
+                throw new UnauthorizedException("Account is inactive. Please contact support.");
             }
 
+            // 5. Delete old refresh token
             refreshTokenRepository.delete(refreshToken);
 
-            log.info("Token refreshed successfully for user: {}", user.getEmail());
+            log.info("Token refreshed successfully for user: {}", user.getId());
 
-            // Generate new tokens
+            // 6. Generate new tokens
             return generateTokenPair(user);
             
         } catch (UnauthorizedException ex) {
@@ -183,142 +168,9 @@ public class AuthService {
         }
     }
 
-    public UserResponse getCurrentUser(String accessToken) {
-        try {
-            // Validate token
-            if(!tokenProvider.validateToken(accessToken)) {
-                throw new UnauthorizedException("Invalid or expired access token. Please login again.");
-            }
-
-            // Extract user ID from token
-            UUID userId = tokenProvider.getUserIdFromToken(accessToken);
-
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new UnauthorizedException("User not found. Please login again."));
-
-            if(!user.getIsActive()) {
-                throw new UnauthorizedException("Your account has been deactivated. Please contact support.");
-            }
-
-            return mapToUserResponse(user);
-            
-        } catch (UnauthorizedException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Error fetching current user: {}", ex.getMessage(), ex);
-            throw new UnauthorizedException("Failed to get user information. Please login again.");
-        }
-    }
-
-    @Transactional
-    public MessageResponse verifyEmail(String token) {
-        try {
-            User user = userRepository.findByVerificationToken(token)
-                    .orElseThrow(() -> new BadRequestException("Invalid verification link. The token may have been used or is incorrect."));
-
-            if(user.getEmailVerified()) {
-                log.info("Email already verified for user: {}", user.getEmail());
-                return MessageResponse.builder()
-                        .message("Email is already verified. You can proceed to login.")
-                        .success(true)
-                        .build();
-            }
-
-            if(user.getVerificationTokenExpiresAt().isBefore(LocalDateTime.now())) {
-                log.warn("Expired verification token used for user: {}", user.getEmail());
-                throw new BadRequestException("Verification link has expired. Please request a new verification email.");
-            }
-
-            user.setEmailVerified(true);
-            user.setVerificationToken(null);
-            user.setVerificationTokenExpiresAt(null);
-            userRepository.save(user);
-
-            log.info("Email verified successfully for user: {}", user.getEmail());
-
-            return MessageResponse.builder()
-                    .message("Email verified successfully! You can now login to your account.")
-                    .success(true)
-                    .build();
-                    
-        } catch (BadRequestException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Error during email verification: {}", ex.getMessage(), ex);
-            throw new BadRequestException("Email verification failed. Please try again or contact support.");
-        }
-    }
-
-    @Transactional
-    public MessageResponse forgotPassword(ForgotPasswordRequest request) {
-        try {
-            User user = userRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new BadRequestException("No account found with this email address."));
-
-            if(!user.getIsActive()) {
-                throw new BadRequestException("Your account has been deactivated. Please contact support.");
-            }
-
-            // Generate reset token
-            String resetToken = UUID.randomUUID().toString();
-            user.setPasswordResetToken(resetToken);
-            user.setPasswordResetTokenExpiresAt(LocalDateTime.now().plusHours(1));
-            userRepository.save(user);
-
-            log.info("Password reset requested for user: {}", user.getEmail());
-
-            // Send reset email
-            try {
-                emailService.sendPasswordResetEmail(user, resetToken);
-            } catch (Exception e) {
-                log.error("Failed to send password reset email to: {}", user.getEmail(), e);
-                throw new BadRequestException("Failed to send password reset email. Please try again.");
-            }
-
-            return MessageResponse.builder()
-                    .message("Password reset link has been sent to your email. Please check your inbox.")
-                    .success(true)
-                    .build();
-                    
-        } catch (BadRequestException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Error during forgot password: {}", ex.getMessage(), ex);
-            throw new BadRequestException("Failed to process password reset request. Please try again.");
-        }
-    }
-
-    @Transactional
-    public MessageResponse resetPassword(ResetPasswordRequest request) {
-        try {
-            User user = userRepository.findByPasswordResetToken(request.getToken())
-                    .orElseThrow(() -> new BadRequestException("Invalid or expired password reset link."));
-
-            if (user.getPasswordResetTokenExpiresAt().isBefore(LocalDateTime.now())) {
-                log.warn("Expired password reset token used for user: {}", user.getEmail());
-                throw new BadRequestException("Password reset link has expired. Please request a new one.");
-            }
-
-            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-            user.setPasswordResetToken(null);
-            user.setPasswordResetTokenExpiresAt(null);
-            userRepository.save(user);
-
-            log.info("Password reset successfully for user: {}", user.getEmail());
-
-            return MessageResponse.builder()
-                    .message("Password reset successful! You can now login with your new password.")
-                    .success(true)
-                    .build();
-                    
-        } catch (BadRequestException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Error during password reset: {}", ex.getMessage(), ex);
-            throw new BadRequestException("Failed to reset password. Please try again or request a new reset link.");
-        }
-    }
-
+    /**
+     * Logout user
+     */
     @Transactional
     public MessageResponse logout(UUID userId) {
         if (userId == null) {
@@ -326,89 +178,105 @@ public class AuthService {
         }
 
         userRepository.findById(userId)
-                .orElseThrow(() -> new UnauthorizedException("User not found"));
-
-        // Count before
-        long countBefore = refreshTokenRepository.count();
-        System.out.println("Total refresh tokens BEFORE: " + countBefore);
-
-        // Revoke all refresh tokens
-        refreshTokenRepository.deleteByUserId(userId);
-        refreshTokenRepository.flush(); // Force the delete
-
-        long countAfter = refreshTokenRepository.count();
-        System.out.println("Total refresh tokens AFTER: " + countAfter);
-        System.out.println("DELETED REFRESH TOKEN");
-
-        return MessageResponse.builder()
-                .message("Logged out successfully")
-                .success(true)
-                .build();
-    }
-
-    @Transactional
-    public MessageResponse resendVerification(ForgotPasswordRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new BadRequestException("User not found"));
-
-        // Check if already verified
-        if (user.getEmailVerified()) {
-            return MessageResponse.builder()
-                    .message("Email is already verified")
-                    .success(true)
-                    .build();
-        }
-
-        // Generate new verification token if needed
-        if (user.getVerificationToken() == null ||
-                user.getVerificationTokenExpiresAt() == null ||
-                user.getVerificationTokenExpiresAt().isBefore(LocalDateTime.now())) {
-
-            user.setVerificationToken(UUID.randomUUID().toString());
-            user.setVerificationTokenExpiresAt(
-                    LocalDateTime.now().plusSeconds(verificationTokenExpiration / 1000)
-            );
-            userRepository.save(user);
-        }
-
-        // Send verification email
-        emailService.sendVerificationEmail(user);
-
-        return MessageResponse.builder()
-                .message("Verification email sent successfully")
-                .success(true)
-                .build();
-    }
-
-
-    public UserResponse getUserById(UUID userId) {
-    log.debug("Fetching user by ID: {}", userId);
-    
-    User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-    return UserResponse.builder()
-            .id(user.getId())
-            .email(user.getEmail())
-            .username(user.getUserName())
-            .phone(user.getPhone())
-            .role(user.getRole())
-            .emailVerified(user.getEmailVerified())
-            .createdAt(user.getCreatedAt())
-            .build();
-}
+        // Delete all refresh tokens for this user
+        refreshTokenRepository.deleteByUserId(userId);
+        refreshTokenRepository.flush();
 
-    // Helper method to generate tokens and user response
+        log.info("User logged out: {}", userId);
+
+        return MessageResponse.builder()
+            .message("Logged out successfully")
+            .success(true)
+            .build();
+    }
+
+    /**
+     * Get user by ID
+     */
+    public UserResponse getUserById(UUID userId) {
+        log.debug("Fetching user by ID: {}", userId);
+        
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        return mapToUserResponse(user);
+    }
+
+    /**
+     * Create pending user (before OTP verification)
+     */
+    private User createPendingUser(String phone) {
+        User user = User.builder()
+            .phone(phone)
+            .countryCode(extractCountryCode(phone))
+            .phoneVerified(false)
+            .isActive(true)
+            .failedLoginAttempts(0)
+            .build();
+
+        user = userRepository.save(user);
+        log.info("Pending user created for phone: {}", maskPhone(phone));
+
+        return user;
+    }
+
+    /**
+     * Validate and format phone number using libphonenumber
+     */
+    private String validateAndFormatPhone(String phone) {
+        try {
+            PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
+            PhoneNumber number = phoneUtil.parse(phone, null);
+
+            if (!phoneUtil.isValidNumber(number)) {
+                throw new BadRequestException("Invalid phone number");
+            }
+
+            // Format in E164 format: +919876543210
+            return phoneUtil.format(number, PhoneNumberUtil.PhoneNumberFormat.E164);
+
+        } catch (Exception e) {
+            log.error("Phone validation failed: {}", e.getMessage());
+            throw new BadRequestException("Invalid phone number format. Use international format: +919876543210");
+        }
+    }
+
+    /**
+     * Extract country code from phone
+     */
+    private String extractCountryCode(String phone) {
+        try {
+            PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
+            PhoneNumber number = phoneUtil.parse(phone, null);
+            return "+" + number.getCountryCode();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Mask phone number for logging
+     */
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 4) {
+            return "****";
+        }
+        return phone.substring(0, phone.length() - 4) + "****";
+    }
+
+    /**
+     * Generate tokens and save refresh token
+     */
     private TokenPair generateTokenPair(User user) {
         // Generate access token
-        String accessToken = tokenProvider.generateAccessToken(
-                user
-        );
+        String accessToken = tokenProvider.generateAccessToken(user);
 
         // Generate refresh token
         String refreshTokenString = tokenProvider.generateRefreshToken(user.getId());
 
-        // Save refresh token to a database
+        // Save refresh token to database
         RefreshToken refreshToken = RefreshToken.builder()
                 .token(refreshTokenString)
                 .user(user)
@@ -416,35 +284,48 @@ public class AuthService {
                 .expiresAt(LocalDateTime.now().plusSeconds(refreshTokenExpiration / 1000))
                 .build();
 
-        if (refreshToken != null) {
-            refreshTokenRepository.save(refreshToken);
-        }
+        refreshTokenRepository.save(refreshToken);
 
-        return new TokenPair(accessToken, refreshTokenString, mapToUserResponse(user));
+        log.info("Tokens generated successfully for user: {}", user.getId());
+
+        return TokenPair.builder()
+            .accessToken(accessToken)
+            .refreshToken(refreshTokenString)
+            .user(mapToUserResponse(user))
+            .build();
     }
 
+    /**
+     * Map User entity to UserResponse DTO
+     */
     private UserResponse mapToUserResponse(User user) {
         return UserResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .username(user.getUserName())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .emailVerified(user.getEmailVerified())
-                .createdAt(user.getCreatedAt())
-                .build();
+            .id(user.getId())
+            .phone(user.getPhone())
+            .countryCode(user.getCountryCode())
+            .phoneVerified(user.getPhoneVerified())
+            .phoneVerifiedAt(user.getPhoneVerifiedAt())
+            .email(user.getEmail())
+            .emailVerified(user.getEmailVerified())
+            .username(user.getUserName())
+            .role(user.getRole())
+            .isActive(user.getIsActive())
+            .createdAt(user.getCreatedAt())
+            .updatedAt(user.getUpdatedAt())
+            .failedLoginAttempts(user.getFailedLoginAttempts())
+            .lockedUntil(user.getLockedUntil())
+            .build();
     }
 
-    // Inner class to hold tokens and user data
+    /**
+     * Token pair holder
+     */
+    @Data
+    @Builder
+    @AllArgsConstructor
     public static class TokenPair {
-        public final String accessToken;
-        public final String refreshToken;
-        public final UserResponse user;
-
-        public TokenPair(String accessToken, String refreshToken, UserResponse user) {
-            this.accessToken = accessToken;
-            this.refreshToken = refreshToken;
-            this.user = user;
-        }
+        private String accessToken;
+        private String refreshToken;
+        private UserResponse user;
     }
 }

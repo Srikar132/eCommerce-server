@@ -1,6 +1,5 @@
 package com.nala.armoire.model.entity;
 
-
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -23,17 +22,26 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(unique = true, nullable = false)
-    private String email;
+    // Phone authentication (PRIMARY)
+    @Column(nullable = false, unique = true, length = 15)
+    private String phone; // Format: +919876543210
 
-    @Column(name = "password", nullable = false)
-    private String password;
+    @Column(length = 5)
+    private String countryCode; // +91
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean phoneVerified = false;
+
+    @Column(unique = true , nullable = true)
+    private String email; // Optional
+
+    @Column(name = "email_verified")
+    @Builder.Default
+    private Boolean emailVerified = false;
 
     @Column(name = "user_name", length = 100)
     private String userName;
-
-    @Column(length = 20)
-    private String phone;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
@@ -44,22 +52,6 @@ public class User {
     @Builder.Default
     private Boolean isActive = true;
 
-    @Column(name = "email_verified")
-    @Builder.Default
-    private Boolean emailVerified = false;
-
-    @Column(name = "verification_token")
-    private String verificationToken;
-
-    @Column(name = "verification_token_expires_at")
-    private LocalDateTime verificationTokenExpiresAt;
-
-    @Column(name = "password_reset_token")
-    private String passwordResetToken;
-
-    @Column(name = "password_reset_token_expires_at")
-    private LocalDateTime passwordResetTokenExpiresAt;
-
     @CreationTimestamp
     @Column(name = "created_at", updatable = false, nullable = false)
     private LocalDateTime createdAt;
@@ -67,5 +59,16 @@ public class User {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    // Account security
+    @Column
+    private LocalDateTime phoneVerifiedAt;
+
+    @Column
+    @Builder.Default
+    private Integer failedLoginAttempts = 0;
+
+    @Column
+    private LocalDateTime lockedUntil;
 
 }

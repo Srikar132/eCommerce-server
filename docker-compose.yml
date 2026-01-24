@@ -68,6 +68,11 @@ services:
       # Admin Email
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       
+      # Twilio Configuration (for OTP SMS)
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      
       # Java Options
       - JAVA_OPTS=-Xms256m -Xmx512m
     depends_on:
