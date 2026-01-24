@@ -31,8 +31,17 @@ public class AdminCategoryService {
     public CategoryDTO createCategory(Category category) {
         // Validate parent category if specified
         if (category.getParent() != null) {
-            categoryRepository.findById(category.getParent().getId())
+            Category parentCategory = categoryRepository.findById(category.getParent().getId())
                     .orElseThrow(() -> new ResourceNotFoundException("Parent category not found"));
+            
+            // Validate hierarchy depth (prevent excessive nesting)
+            int depth = calculateCategoryDepth(parentCategory);
+            if (depth >= 3) {
+                throw new BadRequestException("Category hierarchy cannot exceed 3 levels (e.g., Men > Topwear > T-Shirts)");
+            }
+            
+            // Set the parent from the fetched entity to ensure it's managed
+            category.setParent(parentCategory);
         }
 
         // Check for duplicate slug
@@ -42,9 +51,24 @@ public class AdminCategoryService {
 
         Category savedCategory = categoryRepository.save(category);
 
-        log.info("Admin: Created category: {}", savedCategory.getName());
+        log.info("Admin: Created category: {} with parent: {}", 
+                savedCategory.getName(), 
+                savedCategory.getParent() != null ? savedCategory.getParent().getName() : "None");
 
         return mapToDTO(savedCategory);
+    }
+    
+    /**
+     * Calculate the depth of a category in the hierarchy
+     */
+    private int calculateCategoryDepth(Category category) {
+        int depth = 0;
+        Category current = category;
+        while (current != null) {
+            depth++;
+            current = current.getParent();
+        }
+        return depth;
     }
 
     /**
@@ -81,16 +105,29 @@ public class AdminCategoryService {
 
         // Update parent if changed
         if (categoryUpdate.getParent() != null) {
+            UUID newParentId = categoryUpdate.getParent().getId();
+            
             // Prevent circular references
-            if (categoryUpdate.getParent().getId().equals(categoryId)) {
+            if (newParentId.equals(categoryId)) {
                 throw new BadRequestException("Category cannot be its own parent");
             }
             
             // Validate parent exists
-            categoryRepository.findById(categoryUpdate.getParent().getId())
+            Category newParent = categoryRepository.findById(newParentId)
                     .orElseThrow(() -> new ResourceNotFoundException("Parent category not found"));
+            
+            // Prevent setting a child as parent (circular reference check)
+            if (isDescendant(existingCategory, newParentId)) {
+                throw new BadRequestException("Cannot set a descendant category as parent - this would create a circular reference");
+            }
+            
+            // Validate hierarchy depth
+            int newDepth = calculateCategoryDepth(newParent);
+            if (newDepth >= 3) {
+                throw new BadRequestException("Category hierarchy cannot exceed 3 levels (e.g., Men > Topwear > T-Shirts)");
+            }
                     
-            existingCategory.setParent(categoryUpdate.getParent());
+            existingCategory.setParent(newParent);
         }
 
         Category savedCategory = categoryRepository.save(existingCategory);
@@ -198,9 +235,25 @@ public class AdminCategoryService {
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
+    
+    /**
+     * Check if targetId is a descendant of the category
+     */
+    private boolean isDescendant(Category category, UUID targetId) {
+        List<Category> children = categoryRepository.findByParentIdOrderByDisplayOrderAsc(category.getId());
+        for (Category child : children) {
+            if (child.getId().equals(targetId)) {
+                return true;
+            }
+            if (isDescendant(child, targetId)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     private CategoryDTO mapToDTO(Category category) {
-        return CategoryDTO.builder()
+        CategoryDTO.CategoryDTOBuilder builder = CategoryDTO.builder()
                 .id(category.getId())
                 .name(category.getName())
                 .slug(category.getSlug())
@@ -209,7 +262,44 @@ public class AdminCategoryService {
                 .parentId(category.getParent() != null ? category.getParent().getId() : null)
                 .displayOrder(category.getDisplayOrder())
                 .isActive(category.getIsActive())
-                .createdAt(category.getCreatedAt())
-                .build();
+                .createdAt(category.getCreatedAt());
+        
+        // Add parent category information if exists
+        if (category.getParent() != null) {
+            Category parent = category.getParent();
+            builder.parent(CategoryDTO.ParentCategoryInfo.builder()
+                    .id(parent.getId())
+                    .name(parent.getName())
+                    .slug(parent.getSlug())
+                    .parentId(parent.getParent() != null ? parent.getParent().getId() : null)
+                    .build());
+        }
+        
+        // Build hierarchy path (from root to current)
+        builder.hierarchy(buildHierarchyPath(category));
+        
+        return builder.build();
+    }
+    
+    /**
+     * Build hierarchy path from root to current category
+     * Example: ["Men", "Topwear", "T-Shirts"]
+     */
+    private List<String> buildHierarchyPath(Category category) {
+        List<String> hierarchy = new java.util.ArrayList<>();
+        buildHierarchyRecursive(category, hierarchy);
+        java.util.Collections.reverse(hierarchy); // Reverse to get root-to-leaf order
+        return hierarchy;
+    }
+    
+    /**
+     * Recursively build hierarchy path
+     */
+    private void buildHierarchyRecursive(Category category, List<String> hierarchy) {
+        if (category == null) return;
+        hierarchy.add(category.getName());
+        if (category.getParent() != null) {
+            buildHierarchyRecursive(category.getParent(), hierarchy);
+        }
     }
 }

@@ -15,11 +15,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout code
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # Setup Java
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
@@ -27,24 +25,20 @@ jobs:
           java-version: "17"
           cache: maven
 
-      # Build backend
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
-      # Login to Docker Hub (secure)
       - name: Login to Docker Hub
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | \
           docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      # Build Docker image (latest + SHA)
       - name: Build Docker image
         run: |
           docker build \
             -t $DOCKER_IMAGE:latest \
             -t $DOCKER_IMAGE:${{ github.sha }} .
 
-      # Push Docker images
       - name: Push Docker image
         run: |
           docker push $DOCKER_IMAGE:latest
@@ -57,7 +51,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-      # Setup SSH
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -67,89 +60,52 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      # Deploy (ZERO-DOWNTIME)
       - name: Deploy backend on EC2
         run: |
           ssh ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
             cd /home/ec2-user/armoire
 
-            echo "Pulling latest backend image..."
-            docker-compose pull backend
+            echo "Pulling latest images..."
+            docker-compose pull
 
-            echo "Checking if Elasticsearch is running..."
-            if ! docker-compose ps elasticsearch | grep -q "Up"; then
-              echo "⚠️ Elasticsearch not running! Starting Elasticsearch first..."
-              docker-compose up -d elasticsearch
-          
-              echo "Waiting for Elasticsearch to be ready..."
-              for i in {1..30}; do
-                if curl -s http://localhost:9200/_cluster/health > /dev/null 2>&1; then
-                  echo "✅ Elasticsearch is ready!"
-                  break
-                fi
-                echo "⏳ Waiting for Elasticsearch... ($i/30)"
-                sleep 5
-              done
-            fi
+            echo "Starting Redis..."
+            docker-compose up -d redis
 
             echo "Starting/Updating backend..."
             docker-compose up -d backend
 
             echo "Waiting for containers to stabilize..."
-            sleep 15
+            sleep 20
 
-            echo "Current running containers:"
             docker-compose ps
-          
-            echo "Checking Elasticsearch status:"
-            curl -s http://localhost:9200/_cluster/health || echo "Elasticsearch health check failed"
-          
-            echo "Checking backend logs (last 20 lines):"
-            docker-compose logs --tail=20 backend
+            docker-compose logs --tail=30 backend
           EOF
 
-      # Health check with improved diagnostics
       - name: Backend health check
         run: |
           echo "Waiting for backend to become healthy..."
-          sleep 45  # Increased initial wait time
+          sleep 30
 
-          for i in {1..20}; do  # Increased attempts
-            echo "Health check attempt $i/20..."
-          
-            # Try health endpoint
+          for i in {1..15}; do
             STATUS=$(curl -o /dev/null -s -w "%{http_code}" \
               http://${{ secrets.EC2_HOST }}:8080/actuator/health || echo "000")
-            echo "Response status: $STATUS"
-          
+
             if [ "$STATUS" = "200" ]; then
               echo "✅ Backend is healthy!"
-              curl -s http://${{ secrets.EC2_HOST }}:8080/actuator/health | jq '.' || curl -s http://${{ secrets.EC2_HOST }}:8080/actuator/health
+              curl -s http://${{ secrets.EC2_HOST }}:8080/actuator/health
               exit 0
             fi
-          
-            # Show recent logs on failure
-            if [ $i -eq 10 ]; then
-              echo "⚠️ Still not healthy after 10 attempts. Checking logs..."
-              ssh ec2-user@${{ secrets.EC2_HOST }} \
-                "cd /home/ec2-user/armoire && docker-compose logs --tail=30 backend"
-            fi
-          
-            echo "⏳ Backend not ready yet (status=$STATUS). Retrying in 15s..."
+
+            echo "⏳ Backend not ready (status=$STATUS). Retrying..."
             sleep 15
           done
 
-          echo "❌ Health check failed after 20 attempts"
-          echo "Final container status:"
-          ssh ec2-user@${{ secrets.EC2_HOST }} "cd /home/ec2-user/armoire && docker-compose ps"
-          echo "Elasticsearch logs:"
-          ssh ec2-user@${{ secrets.EC2_HOST }} "cd /home/ec2-user/armoire && docker-compose logs --tail=30 elasticsearch"
-          echo "Backend logs:"
-          ssh ec2-user@${{ secrets.EC2_HOST }} "cd /home/ec2-user/armoire && docker-compose logs --tail=50 backend"
+          echo "❌ Health check failed"
+          ssh ec2-user@${{ secrets.EC2_HOST }} \
+            "cd /home/ec2-user/armoire && docker-compose logs --tail=50 backend"
           exit 1
 
-      # Cleanup
       - name: Cleanup SSH
         if: always()
         run: rm -rf ~/.ssh

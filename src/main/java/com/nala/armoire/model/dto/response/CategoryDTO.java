@@ -23,13 +23,30 @@ public class CategoryDTO {
     private String description;
     private String imageUrl;
     private UUID parentId;
+    private ParentCategoryInfo parent; // Full parent category information
     private Integer displayOrder;
     private List<CategoryDTO> subCategories;
     private String fullPath;
+    private List<String> hierarchy; // Hierarchy path from root to current (e.g., ["Men", "Topwear", "T-Shirts"])
     
     @JsonProperty("isActive")
     private Boolean isActive;
     
     private LocalDateTime createdAt;
     private Long productCount;
+    
+    /**
+     * Simplified parent category information to avoid deep nesting
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class ParentCategoryInfo {
+        private UUID id;
+        private String name;
+        private String slug;
+        private UUID parentId; // Grandparent ID if exists
+    }
 }
