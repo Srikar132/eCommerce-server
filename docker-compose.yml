@@ -1,85 +1,102 @@
-version: "3.8"
-
 services:
+  # Redis Service
+  redis:
+    image: redis:7-alpine
+    container_name: armoire-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - armoire-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Spring Boot Backend Service
   backend:
-    image: srikar77115/nala-armoire-backend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: armoire-backend
     ports:
       - "8080:8080"
     environment:
+      # Spring Profile
       - SPRING_PROFILES_ACTIVE=docker
-
-      # Database
+      
+      # Database Configuration (from .env file)
       - DATABASE_URL=${DATABASE_URL}
       - DATABASE_USERNAME=${DATABASE_USERNAME}
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
-
-      # Redis
-      - SPRING_CACHE_TYPE=redis
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
-
-      # JWT
+      
+      # Redis Configuration
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      
+      # JWT Configuration
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ACCESS_TOKEN_EXPIRATION=${JWT_ACCESS_TOKEN_EXPIRATION:-900000}
       - JWT_REFRESH_TOKEN_EXPIRATION=${JWT_REFRESH_TOKEN_EXPIRATION:-604800000}
       - JWT_COOKIE_SECURE=${JWT_COOKIE_SECURE:-false}
-
-      # Mail
+      
+      # Mail Configuration
       - MAIL_HOST=${MAIL_HOST:-smtp.gmail.com}
       - MAIL_PORT=${MAIL_PORT:-587}
       - MAIL_USERNAME=${MAIL_USERNAME}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
-
-      # AWS
+      
+      # AWS Configuration
       - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
       - AWS_REGION=${AWS_REGION:-eu-north-1}
       - AWS_S3_BUCKET=${AWS_S3_BUCKET}
       - AWS_CLOUDFRONT_DOMAIN=${AWS_CLOUDFRONT_DOMAIN}
-
-      # Frontend
+      
+      # Frontend URL
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-
-      # Razorpay
+      
+      # Razorpay Configuration
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
-
-      # Admin
+      
+      # Admin Email
       - ADMIN_EMAIL=${ADMIN_EMAIL}
+      
+      # Twilio Configuration (for OTP SMS)
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
 
-      # JVM (FREE TIER SAFE)
+      # Java Options
       - JAVA_OPTS=-Xms256m -Xmx512m
-
     depends_on:
-      - redis
-
+      redis:
+        condition: service_healthy
     deploy:
       resources:
         limits:
           memory: 1024m
         reservations:
           memory: 512m
-
+    networks:
+      - armoire-network
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
-
     restart: unless-stopped
-    networks:
-      - armoire-network
 
-  redis:
-    image: redis:7-alpine
-    container_name: armoire-redis
-    ports:
-      - "6379:6379"
-    restart: unless-stopped
-    networks:
-      - armoire-network
+volumes:
+  redis-data:
+    driver: local
 
 networks:
   armoire-network:

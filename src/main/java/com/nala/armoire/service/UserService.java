@@ -32,8 +32,27 @@ public class UserService {
     public UserProfileDTO updateUserProfile(UUID userId, UpdateProfileRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User Not Found"));
-        user.setUserName(request.getUsername());
-        user.setPhone(request.getPhone());
+        
+        // Update username if provided
+        if (request.getUsername() != null && !request.getUsername().trim().isEmpty()) {
+            user.setUserName(request.getUsername().trim());
+        }
+        
+        // Update email if provided and check for uniqueness
+        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+            String newEmail = request.getEmail().trim().toLowerCase();
+            
+            // Check if email is different from current
+            if (!newEmail.equals(user.getEmail())) {
+                // Check if email already exists for another user
+                if (userRepository.existsByEmail(newEmail)) {
+                    throw new IllegalArgumentException("Email already in use by another account");
+                }
+                user.setEmail(newEmail);
+                // Reset email verification when email is changed
+                user.setEmailVerified(false);
+            }
+        }
 
         User updatedUser = userRepository.save(user);
         log.info("User profile updated successfully for userId: {}", userId);
@@ -46,11 +65,19 @@ public class UserService {
     private UserProfileDTO mapToProfileDTO(User user ) {
         return UserProfileDTO.builder()
                 .id(String.valueOf(user.getId()))
-                .email(user.getEmail())
-                .username(user.getUserName())
                 .phone(user.getPhone())
+                .countryCode(user.getCountryCode())
+                .phoneVerified(user.getPhoneVerified())
+                .phoneVerifiedAt(user.getPhoneVerifiedAt())
+                .email(user.getEmail())
                 .emailVerified(user.getEmailVerified())
+                .username(user.getUserName())
+                .role(user.getRole())
+                .isActive(user.getIsActive())
                 .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .failedLoginAttempts(user.getFailedLoginAttempts())
+                .lockedUntil(user.getLockedUntil())
                 .build();
     }
 

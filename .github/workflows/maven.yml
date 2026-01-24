@@ -7,7 +7,7 @@ on:
 
 env:
   DOCKER_IMAGE: srikar77115/nala-armoire-backend
-  DEPLOY_PATH: /home/ec2-user/armoire
+  DEPLOY_PATH: /home/ec2-user/nala-armorie
 
 jobs:
   build-and-push:
@@ -30,8 +30,8 @@ jobs:
 
       - name: Login to Docker Hub
         run: |
-          echo "${{ secrets.DOCKER_PASSWORD }}" | \
-          docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | \
+          docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
       - name: Build Docker image
         run: |
@@ -55,34 +55,28 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           cat << 'EOF' > ~/.ssh/id_rsa
-          ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          ${{ secrets.EC2_SSH_KEY }}
           EOF
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy backend on EC2
+      - name: Deploy on EC2
         run: |
           ssh ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
-            cd /home/ec2-user/armoire
+            cd /home/ec2-user/nala-armorie
 
-            echo "Pulling latest images..."
-            docker-compose pull
+            echo "Pulling latest image..."
+            docker compose pull
 
-            echo "Starting Redis..."
-            docker-compose up -d redis
+            echo "Starting services..."
+            docker compose up -d
 
-            echo "Starting/Updating backend..."
-            docker-compose up -d backend
-
-            echo "Waiting for containers to stabilize..."
-            sleep 20
-
-            docker-compose ps
-            docker-compose logs --tail=30 backend
+            echo "Running containers:"
+            docker compose ps
           EOF
 
-      - name: Backend health check
+      - name: Backend Health Check
         run: |
           echo "Waiting for backend to become healthy..."
           sleep 30
@@ -103,7 +97,7 @@ jobs:
 
           echo "❌ Health check failed"
           ssh ec2-user@${{ secrets.EC2_HOST }} \
-            "cd /home/ec2-user/armoire && docker-compose logs --tail=50 backend"
+            "cd /home/ec2-user/nala-armorie && docker compose logs --tail=50 armoire-backend"
           exit 1
 
       - name: Cleanup SSH

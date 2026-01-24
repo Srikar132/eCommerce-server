@@ -1,7 +1,5 @@
 package com.nala.armoire.service;
 
-
-import com.nala.armoire.model.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
@@ -17,46 +15,7 @@ public class EmailService {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    public void sendVerificationEmail(User user) {
-        String verificationLink = frontendUrl + "/verify-email?token=" + user.getVerificationToken();
-
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(user.getEmail());
-        message.setSubject("Verify your Email - E-Commerce Store");
-        message.setText(
-                "Hello " + user.getUserName() + ",\n\n" +
-                        "Thank you for registering. Please verify your email by clicking the link below: \n\n " + verificationLink + "\n\n" +
-                        "This link will expire in 24 hours \n\n" +
-                        "Best regards, \n" +
-                        "E-commerce Team"
-        );
-
-        mailSender.send(message);
-
-        System.out.println("Email sent in registeration\n");
-    }
-
-    public void sendPasswordResetEmail(User user, String resetToken) {
-        String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
-
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(user.getEmail());
-        message.setSubject("Password Reset - E-Commerece Store");
-        message.setText(
-                "Hello" + user.getUserName() + ",\n\n" +
-                        "You requested to reset your password. Click the link below to reset: \n\n" +
-                        resetLink + "\n\n" +
-                        "This link will expire in 1 hour.\n\n" +
-                        "If you didn't request this, please ignore this email.\n\n" +
-                        "Best regards,\n" +
-                        "E-commerce Team"
-        );
-
-        mailSender.send(message);
-    }
-
-
-        public void sendOrderConfirmationEmail(com.nala.armoire.model.entity.Order order) {
+    public void sendOrderConfirmationEmail(com.nala.armoire.model.entity.Order order) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(order.getUser().getEmail());
         message.setSubject("Order Confirmed - " + order.getOrderNumber());
@@ -69,8 +28,7 @@ public class EmailService {
                         "Estimated Delivery: " + order.getEstimatedDeliveryDate() + "\n\n" +
                         "You can track your order at: " + frontendUrl + "/orders/" + order.getOrderNumber() + "\n\n" +
                         "Best regards,\n" +
-                        "E-commerce Team"
-        );
+                        "E-commerce Team");
 
         mailSender.send(message);
     }
@@ -88,8 +46,7 @@ public class EmailService {
                         "Estimated Delivery: " + order.getEstimatedDeliveryDate() + "\n\n" +
                         "Track your order: " + frontendUrl + "/orders/" + order.getOrderNumber() + "\n\n" +
                         "Best regards,\n" +
-                        "E-commerce Team"
-        );
+                        "E-commerce Team");
 
         mailSender.send(message);
     }
@@ -105,8 +62,7 @@ public class EmailService {
                         "Delivered At: " + order.getDeliveredAt() + "\n\n" +
                         "We hope you enjoy your purchase. Please leave a review!\n\n" +
                         "Best regards,\n" +
-                        "E-commerce Team"
-        );
+                        "E-commerce Team");
 
         mailSender.send(message);
     }
@@ -122,8 +78,7 @@ public class EmailService {
                         "Refund will be processed within 5-7 business days.\n\n" +
                         "If you have any questions, please contact our support.\n\n" +
                         "Best regards,\n" +
-                        "E-commerce Team"
-        );
+                        "E-commerce Team");
 
         mailSender.send(message);
     }
@@ -138,11 +93,9 @@ public class EmailService {
                         "Variant: " + variant.getSize() + " - " + variant.getColor() + "\n" +
                         "Current Stock: " + variant.getStockQuantity() + "\n\n" +
                         "Please restock this item.\n\n" +
-                        "Admin Dashboard: " + frontendUrl + "/admin/products"
-        );
+                        "Admin Dashboard: " + frontendUrl + "/admin/products");
 
         mailSender.send(message);
     }
 
-    
 }

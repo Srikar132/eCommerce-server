@@ -15,10 +15,17 @@ import java.util.UUID;
 @AllArgsConstructor
 public class UserResponse {
     private UUID id;
-    private String email;
-    private String username;
     private String phone;
-    private UserRole role;
+    private String countryCode;
+    private Boolean phoneVerified;
+    private LocalDateTime phoneVerifiedAt;
+    private String email;
     private Boolean emailVerified;
+    private String username;
+    private UserRole role;
+    private Boolean isActive;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private Integer failedLoginAttempts;
+    private LocalDateTime lockedUntil;
 }
