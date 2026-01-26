@@ -1,13 +1,13 @@
 package com.nala.armoire.repository;
 
+import com.nala.armoire.model.entity.Category;
 import com.nala.armoire.model.entity.Product;
 import com.nala.armoire.model.entity.ProductVariant;
-import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.JoinType;
-import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ProductSpecification {
@@ -21,15 +21,46 @@ public class ProductSpecification {
     }
 
     /**
-     * Filter products by category slugs (OR logic)
-     * Example: category=t-shirts,jeans -> returns products in t-shirts OR jeans
+     * Filter products by category slugs INCLUDING all child categories (OR logic)
+     * Example: category=men -> returns products in "men" AND "men-tshirts", "men-bottomwear", etc.
+     * 
+     * This performs a hierarchical search:
+     * 1. Find products directly in the specified category
+     * 2. Find products in any child category (recursive)
      */
     public static Specification<Product> hasCategorySlugs(List<String> categorySlugs) {
         return (root, query, cb) -> {
             if (categorySlugs == null || categorySlugs.isEmpty()) {
                 return cb.conjunction();
             }
-            return root.get("category").get("slug").in(categorySlugs);
+
+            Join<Product, Category> categoryJoin = root.join("category", JoinType.INNER);
+            
+            // Create a list to hold all predicates
+            List<Predicate> categoryPredicates = new ArrayList<>();
+            
+            for (String categorySlug : categorySlugs) {
+                // Match direct category
+                Predicate directMatch = cb.equal(categoryJoin.get("slug"), categorySlug);
+                
+                // Match child categories (where parent.slug = categorySlug)
+                Predicate childMatch = cb.equal(
+                    categoryJoin.get("parent").get("slug"), 
+                    categorySlug
+                );
+                
+                // Match grandchild categories (where parent.parent.slug = categorySlug)
+                Predicate grandchildMatch = cb.equal(
+                    categoryJoin.get("parent").get("parent").get("slug"), 
+                    categorySlug
+                );
+                
+                // Combine: direct OR child OR grandchild
+                categoryPredicates.add(cb.or(directMatch, childMatch, grandchildMatch));
+            }
+            
+            // Combine all category predicates with OR
+            return cb.or(categoryPredicates.toArray(new Predicate[0]));
         };
     }
 
@@ -73,11 +104,6 @@ public class ProductSpecification {
      * Filter products by variant sizes (OR logic)
      * Returns products that have at least one active variant with ANY of the specified sizes
      * Example: size=M,L -> returns products that have variants with size M OR L
-     *
-     * This uses INNER JOIN to product_variants table and checks:
-     * 1. Variant is active
-     * 2. Variant size matches any of the provided sizes
-     * 3. Uses DISTINCT to avoid duplicate products
      */
     public static Specification<Product> hasVariantWithSizes(List<String> sizes) {
         return (root, query, cb) -> {
@@ -85,16 +111,12 @@ public class ProductSpecification {
                 return cb.conjunction();
             }
 
-            // Join with variants table
             Join<Product, ProductVariant> variantJoin = root.join("variants", JoinType.INNER);
+            if (query != null) {
+                query.distinct(true);
+            }
 
-            // Add distinct to avoid duplicate products when multiple variants match
-            query.distinct(true);
-
-            // Check if variant is active
             Predicate variantActive = cb.isTrue(variantJoin.get("isActive"));
-
-            // Check if size matches any of the provided sizes
             Predicate sizeMatch = variantJoin.get("size").in(sizes);
 
             return cb.and(variantActive, sizeMatch);
@@ -104,12 +126,6 @@ public class ProductSpecification {
     /**
      * Filter products by variant colors (OR logic, case-insensitive)
      * Returns products that have at least one active variant with ANY of the specified colors
-     * Example: color=black,blue -> returns products that have variants with color black OR blue
-     *
-     * This uses INNER JOIN to product_variants table and checks:
-     * 1. Variant is active
-     * 2. Variant color matches any of the provided colors (case-insensitive)
-     * 3. Uses DISTINCT to avoid duplicate products
      */
     public static Specification<Product> hasVariantWithColors(List<String> colors) {
         return (root, query, cb) -> {
@@ -117,17 +133,13 @@ public class ProductSpecification {
                 return cb.conjunction();
             }
 
-            // Join with variants table
             Join<Product, ProductVariant> variantJoin = root.join("variants", JoinType.INNER);
+            if (query != null) {
+                query.distinct(true);
+            }
 
-            // Add distinct to avoid duplicate products when multiple variants match
-            query.distinct(true);
-
-            // Check if variant is active
             Predicate variantActive = cb.isTrue(variantJoin.get("isActive"));
 
-            // Check if color matches any of the provided colors (case-insensitive)
-            // Build OR predicates for each color
             Predicate colorMatch = cb.or(
                     colors.stream()
                             .map(color -> cb.equal(

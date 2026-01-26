@@ -5,6 +5,7 @@ import com.nala.armoire.model.dto.request.AddReviewRequest;
 import com.nala.armoire.model.dto.response.*;
 import com.nala.armoire.security.UserPrincipal;
 import com.nala.armoire.service.ProductService;
+import com.nala.armoire.service.RecommendationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,17 +28,10 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
-
-
+    private final RecommendationService recommendationService;
 
     /**
      * GET /api/v1/products - Search & Filter Products
-     *
-     * Examples:
-     * - /api/v1/products?category=men-tshirts
-     * - /api/v1/products?category=men-tshirts&brand=nike
-     * - /api/v1/products?searchQuery=cotton+shirt&minPrice=500
-     * - /api/v1/products?category=men-topwear,men-bottomwear&productSize=M,L
      */
     @GetMapping
     public ResponseEntity<ProductSearchResponse> searchProducts(
@@ -62,10 +56,64 @@ public class ProductController {
     }
 
     /**
+     * GET /api/v1/products/best-sellers - Get Best Selling Products
+     * 
+     * Returns top selling products based on order history
+     * Can be used on homepage, category pages, or anywhere you want to showcase popular items
+     * 
+     * Example: /api/v1/products/best-sellers?limit=8
+     * Example: /api/v1/products/best-sellers?category=men&limit=6
+     */
+    @GetMapping("/best-sellers")
+    public ResponseEntity<List<ProductDTO>> getBestSellingProducts(
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "10") Integer limit
+    ) {
+        log.info("GET /api/v1/products/best-sellers - category: {}, limit: {}", category, limit);
+
+        List<ProductDTO> bestSellers = recommendationService.getBestSellingProducts(category, limit);
+
+        return ResponseEntity.ok(bestSellers);
+    }
+
+    /**
+     * GET /api/v1/products/recommendations - Get Personalized Product Recommendations
+     * 
+     * Returns personalized recommendations based on:
+     * - User's purchase history
+     * - User's browsing behavior
+     * - User's preferences (if available)
+     * - Popular items (fallback for new users)
+     * 
+     * Can be used anywhere in the app: homepage, product pages, cart, checkout, etc.
+     * 
+     * Examples:
+     * - /api/v1/products/recommendations?limit=8 (authenticated user)
+     * - /api/v1/products/recommendations?excludeProductId=uuid&limit=6 (on product detail page)
+     * - /api/v1/products/recommendations?category=men&limit=4 (category-specific)
+     */
+    @GetMapping("/recommendations")
+    public ResponseEntity<List<ProductDTO>> getRecommendations(
+            @CurrentUser UserPrincipal currentUser,
+            @RequestParam(required = false) String excludeProductId,
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "10") Integer limit
+    ) {
+        log.info("GET /api/v1/products/recommendations - userId: {}, category: {}, limit: {}", 
+                currentUser != null ? currentUser.getId() : "guest", category, limit);
+
+        List<ProductDTO> recommendations = recommendationService.getPersonalizedRecommendations(
+                currentUser != null ? currentUser.getId() : null,
+                excludeProductId,
+                category,
+                limit
+        );
+
+        return ResponseEntity.ok(recommendations);
+    }
+
+    /**
      * GET /api/v1/products/autocomplete - Search Suggestions
-     *
-     * Example: /api/v1/products/autocomplete?query=cot
-     * Returns: ["Cotton T-Shirt", "Cotton Shirt", "Cotton Joggers"]
      */
     @GetMapping("/autocomplete")
     public ResponseEntity<List<String>> autocomplete(
@@ -80,9 +128,7 @@ public class ProductController {
     }
 
     /**
-     * GET /api/v1/products/{slug} - Get Single Product (PostgreSQL)
-     *
-     * Example: /api/v1/products/nike-cotton-tshirt-black
+     * GET /api/v1/products/{slug} - Get Single Product
      */
     @GetMapping("/{slug}")
     public ResponseEntity<ProductDTO> getProductBySlug(@PathVariable String slug) {
@@ -133,7 +179,9 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    //POST /api/v1/products/{slug}/reviews - Add review (Authenticated users only)
+    /**
+     * POST /api/v1/products/{slug}/reviews - Add review
+     */
     @PostMapping("/{slug}/reviews")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ReviewDTO> addProductReview(
@@ -144,5 +192,4 @@ public class ProductController {
         ReviewDTO review = productService.addProductReview(slug, currentUser.getId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(review);
     }
-
 }

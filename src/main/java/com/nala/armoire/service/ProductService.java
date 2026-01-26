@@ -36,110 +36,110 @@ public class ProductService {
     private final OrderItemRepository orderItemRepository;
     
 
-    @Transactional(readOnly = true)
-    public PagedResponse<ProductDTO> getProducts(
-            List<String> categorySlugs,
-            List<String> brandSlugs,
-            BigDecimal minPrice,
-            BigDecimal maxPrice,
-            List<String> sizes,
-            List<String> colors,
-            Boolean isCustomizable,
-            String sort,
-            int page,
-            int limit) {
+    // @Transactional(readOnly = true)
+    // public PagedResponse<ProductDTO> getProducts(
+    //         List<String> categorySlugs,
+    //         List<String> brandSlugs,
+    //         BigDecimal minPrice,
+    //         BigDecimal maxPrice,
+    //         List<String> sizes,
+    //         List<String> colors,
+    //         Boolean isCustomizable,
+    //         String sort,
+    //         int page,
+    //         int limit) {
 
-        Specification<Product> spec = ProductSpecification.isActive()
-                .and(ProductSpecification.isNotDraft());
+    //     Specification<Product> spec = ProductSpecification.isActive()
+    //             .and(ProductSpecification.isNotDraft());
 
-        if (categorySlugs != null && !categorySlugs.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasCategorySlugs(categorySlugs));
-        }
+    //     if (categorySlugs != null && !categorySlugs.isEmpty()) {
+    //         spec = spec.and(ProductSpecification.hasCategorySlugs(categorySlugs));
+    //     }
 
-        if (brandSlugs != null && !brandSlugs.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasBrandSlugs(brandSlugs));
-        }
+    //     if (brandSlugs != null && !brandSlugs.isEmpty()) {
+    //         spec = spec.and(ProductSpecification.hasBrandSlugs(brandSlugs));
+    //     }
 
-        if (minPrice != null) {
-            spec = spec.and(ProductSpecification.hasPriceGreaterThanOrEqual(minPrice));
-        }
+    //     if (minPrice != null) {
+    //         spec = spec.and(ProductSpecification.hasPriceGreaterThanOrEqual(minPrice));
+    //     }
 
-        if (maxPrice != null) {
-            spec = spec.and(ProductSpecification.hasPriceLessThanOrEqual(maxPrice));
-        }
+    //     if (maxPrice != null) {
+    //         spec = spec.and(ProductSpecification.hasPriceLessThanOrEqual(maxPrice));
+    //     }
 
-        if (isCustomizable != null) {
-            spec = spec.and(ProductSpecification.isCustomizable(isCustomizable));
-        }
+    //     if (isCustomizable != null) {
+    //         spec = spec.and(ProductSpecification.isCustomizable(isCustomizable));
+    //     }
 
-        if (sizes != null && !sizes.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasVariantWithSizes(sizes));
-        }
+    //     if (sizes != null && !sizes.isEmpty()) {
+    //         spec = spec.and(ProductSpecification.hasVariantWithSizes(sizes));
+    //     }
 
-        if (colors != null && !colors.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasVariantWithColors(colors));
-        }
+    //     if (colors != null && !colors.isEmpty()) {
+    //         spec = spec.and(ProductSpecification.hasVariantWithColors(colors));
+    //     }
 
-        Sort sorting = parseSortParameter(sort);
-        Pageable pageable = PageRequest.of(page - 1, limit, sorting);
-        Page<Product> productPage = productRepository.findAll(spec, pageable);
+    //     Sort sorting = parseSortParameter(sort);
+    //     Pageable pageable = PageRequest.of(page - 1, limit, sorting);
+    //     Page<Product> productPage = productRepository.findAll(spec, pageable);
 
-        List<ProductDTO> productDTOs = productPage.getContent()
-                .stream()
-                .map(this::mapToProductDTO)
-                .collect(Collectors.toList());
+    //     List<ProductDTO> productDTOs = productPage.getContent()
+    //             .stream()
+    //             .map(this::mapToProductDTO)
+    //             .collect(Collectors.toList());
 
-        System.out.println(productDTOs.size());
+    //     System.out.println(productDTOs.size());
 
-        return PagedResponse.<ProductDTO>builder()
-                .content(productDTOs)
-                .page(page)
-                .size(productPage.getSize())
-                .totalElements(productPage.getTotalElements())
-                .totalPages(productPage.getTotalPages())
-                .first(productPage.isFirst())
-                .last(productPage.isLast())
-                .hasNext(productPage.hasNext())
-                .hasPrevious(productPage.hasPrevious())
-                .build();
-    }
+    //     return PagedResponse.<ProductDTO>builder()
+    //             .content(productDTOs)
+    //             .page(page)
+    //             .size(productPage.getSize())
+    //             .totalElements(productPage.getTotalElements())
+    //             .totalPages(productPage.getTotalPages())
+    //             .first(productPage.isFirst())
+    //             .last(productPage.isLast())
+    //             .hasNext(productPage.hasNext())
+    //             .hasPrevious(productPage.hasPrevious())
+    //             .build();
+    // }
 
-    private Sort parseSortParameter(String sortParam) {
-        if (sortParam == null || sortParam.trim().isEmpty()) {
-            return Sort.by(Sort.Direction.DESC, "createdAt");
-        }
+    // private Sort parseSortParameter(String sortParam) {
+    //     if (sortParam == null || sortParam.trim().isEmpty()) {
+    //         return Sort.by(Sort.Direction.DESC, "createdAt");
+    //     }
 
-        List<Sort.Order> orders = new ArrayList<>();
-        String[] sortFields = sortParam.split(",");
+    //     List<Sort.Order> orders = new ArrayList<>();
+    //     String[] sortFields = sortParam.split(",");
 
-        for (String field : sortFields) {
-            String[] parts = field.trim().split(":");
-            String property = parts[0].trim();
-            Sort.Direction direction = Sort.Direction.DESC;
+    //     for (String field : sortFields) {
+    //         String[] parts = field.trim().split(":");
+    //         String property = parts[0].trim();
+    //         Sort.Direction direction = Sort.Direction.DESC;
 
-            if (parts.length > 1) {
-                direction = "asc".equalsIgnoreCase(parts[1].trim())
-                        ? Sort.Direction.ASC
-                        : Sort.Direction.DESC;
-            }
+    //         if (parts.length > 1) {
+    //             direction = "asc".equalsIgnoreCase(parts[1].trim())
+    //                     ? Sort.Direction.ASC
+    //                     : Sort.Direction.DESC;
+    //         }
 
-            if (isValidSortField(property)) {
-                orders.add(new Sort.Order(direction, property));
-            } else {
-                log.warn("Invalid sort field: {}. Using default sort.", property);
-            }
-        }
+    //         if (isValidSortField(property)) {
+    //             orders.add(new Sort.Order(direction, property));
+    //         } else {
+    //             log.warn("Invalid sort field: {}. Using default sort.", property);
+    //         }
+    //     }
 
-        return orders.isEmpty()
-                ? Sort.by(Sort.Direction.DESC, "createdAt")
-                : Sort.by(orders);
-    }
+    //     return orders.isEmpty()
+    //             ? Sort.by(Sort.Direction.DESC, "createdAt")
+    //             : Sort.by(orders);
+    // }
 
-    private boolean isValidSortField(String field) {
-        List<String> validFields = List.of(
-                "createdAt", "updatedAt", "name", "basePrice", "averageRating");
-        return validFields.contains(field);
-    }
+    // private boolean isValidSortField(String field) {
+    //     List<String> validFields = List.of(
+    //             "createdAt", "updatedAt", "name", "basePrice", "averageRating");
+    //     return validFields.contains(field);
+    // }
 
     /**
      * Get product by slug with Redis caching
@@ -217,101 +217,7 @@ public class ProductService {
         return mapToReviewDTO(savedReview);
     }
 
-    // ==================== MAPPING METHODS ====================
 
-    // CHANGED: Extract primary image from first active variant
-    private ProductDTO mapToProductDTO(Product product) {
-
-        Double averageRating = reviewRepository.findAverageRatingByProductId(product.getId());
-        Long reviewCount = reviewRepository.countByProductId(product.getId());
-
-        // Get primary image from first active variant
-        String primaryImageUrl = product.getVariants().stream()
-                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
-                .flatMap(v -> v.getImages().stream())
-                .filter(img -> img.getIsPrimary())
-                .findFirst()
-                .map(img -> img.getImageUrl())
-                .orElse(
-                        // Fallback to first image from first active variant
-                        product.getVariants().stream()
-                                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
-                                .flatMap(v -> v.getImages().stream())
-                                .findFirst()
-                                .map(img -> img.getImageUrl())
-                                .orElse(null)
-                );
-
-        return ProductDTO.builder()
-                .id(product.getId())
-                .name(product.getName())
-                .slug(product.getSlug())
-                .description(product.getDescription())
-                .basePrice(product.getBasePrice())
-                .sku(product.getSku())
-                .isCustomizable(product.getIsCustomizable())
-                .material(product.getMaterial())
-                .careInstructions(product.getCareInstructions())
-                .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
-                .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
-                .brandId(product.getBrand() != null ? product.getBrand().getId() : null)
-                .brandName(product.getBrand() != null ? product.getBrand().getName() : null)
-                .imageUrl(primaryImageUrl)
-                .averageRating(averageRating)
-                .reviewCount(reviewCount)
-                .isActive(product.getIsActive())
-                .isDraft(product.getIsDraft())
-                .createdAt(product.getCreatedAt())
-                .updatedAt(product.getUpdatedAt())
-                .build();
-
-    }
-
-    private ProductImageDTO mapToProductImageDTO(ProductImage image) {
-        return ProductImageDTO.builder()
-                .id(image.getId())
-                .imageUrl(image.getImageUrl())
-                .altText(image.getAltText())
-                .displayOrder(image.getDisplayOrder())
-                .isPrimary(image.getIsPrimary())
-                .imageRole(image.getImageRole())
-                .build();
-    }
-
-    // CHANGED: Now includes variant images
-    private ProductVariantDTO mapToProductVariantDTO(ProductVariant variant) {
-        // Map variant images
-        List<ProductImageDTO> variantImages = variant.getImages().stream()
-                .map(this::mapToProductImageDTO)
-                .collect(Collectors.toList());
-
-        return ProductVariantDTO.builder()
-                .id(variant.getId())
-                .productId(variant.getProduct().getId())
-                .size(variant.getSize())
-                .color(variant.getColor())
-                .colorHex(variant.getColorHex())
-                .stockQuantity(variant.getStockQuantity())
-                .additionalPrice(variant.getAdditionalPrice())
-                .sku(variant.getSku())
-                .isActive(variant.getIsActive())
-                .images(variantImages) // NEW: Include images in variant DTO
-                .build();
-    }
-
-    private ReviewDTO mapToReviewDTO(Review review) {
-        return ReviewDTO.builder()
-                .id(review.getId())
-                .userId(review.getUser().getId())
-                .userName(review.getUser().getUserName())
-                .productId(review.getProduct().getId())
-                .rating(review.getRating())
-                .title(review.getTitle())
-                .comment(review.getComment())
-                .isVerifiedPurchase(review.getIsVerifiedPurchase())
-                .createdAt(review.getCreatedAt())
-                .build();
-    }
 
     /**
      * Search products with facets for filtering
@@ -449,5 +355,102 @@ public class ProductService {
         }
 
         return productRepository.findProductNameAutocomplete(query.trim(), limit);
+    }
+
+
+        // ==================== MAPPING METHODS ====================
+
+    // CHANGED: Extract primary image from first active variant
+    private ProductDTO mapToProductDTO(Product product) {
+
+        Double averageRating = reviewRepository.findAverageRatingByProductId(product.getId());
+        Long reviewCount = reviewRepository.countByProductId(product.getId());
+
+        // Get primary image from first active variant
+        String primaryImageUrl = product.getVariants().stream()
+                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
+                .flatMap(v -> v.getImages().stream())
+                .filter(img -> img.getIsPrimary())
+                .findFirst()
+                .map(img -> img.getImageUrl())
+                .orElse(
+                        // Fallback to first image from first active variant
+                        product.getVariants().stream()
+                                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
+                                .flatMap(v -> v.getImages().stream())
+                                .findFirst()
+                                .map(img -> img.getImageUrl())
+                                .orElse(null)
+                );
+
+        return ProductDTO.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .slug(product.getSlug())
+                .description(product.getDescription())
+                .basePrice(product.getBasePrice())
+                .sku(product.getSku())
+                .isCustomizable(product.getIsCustomizable())
+                .material(product.getMaterial())
+                .careInstructions(product.getCareInstructions())
+                .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
+                .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+                .brandId(product.getBrand() != null ? product.getBrand().getId() : null)
+                .brandName(product.getBrand() != null ? product.getBrand().getName() : null)
+                .imageUrl(primaryImageUrl)
+                .averageRating(averageRating)
+                .reviewCount(reviewCount)
+                .isActive(product.getIsActive())
+                .isDraft(product.getIsDraft())
+                .createdAt(product.getCreatedAt())
+                .updatedAt(product.getUpdatedAt())
+                .build();
+
+    }
+
+    private ProductImageDTO mapToProductImageDTO(ProductImage image) {
+        return ProductImageDTO.builder()
+                .id(image.getId())
+                .imageUrl(image.getImageUrl())
+                .altText(image.getAltText())
+                .displayOrder(image.getDisplayOrder())
+                .isPrimary(image.getIsPrimary())
+                .imageRole(image.getImageRole())
+                .build();
+    }
+
+    // CHANGED: Now includes variant images
+    private ProductVariantDTO mapToProductVariantDTO(ProductVariant variant) {
+        // Map variant images
+        List<ProductImageDTO> variantImages = variant.getImages().stream()
+                .map(this::mapToProductImageDTO)
+                .collect(Collectors.toList());
+
+        return ProductVariantDTO.builder()
+                .id(variant.getId())
+                .productId(variant.getProduct().getId())
+                .size(variant.getSize())
+                .color(variant.getColor())
+                .colorHex(variant.getColorHex())
+                .stockQuantity(variant.getStockQuantity())
+                .additionalPrice(variant.getAdditionalPrice())
+                .sku(variant.getSku())
+                .isActive(variant.getIsActive())
+                .images(variantImages) // NEW: Include images in variant DTO
+                .build();
+    }
+
+    private ReviewDTO mapToReviewDTO(Review review) {
+        return ReviewDTO.builder()
+                .id(review.getId())
+                .userId(review.getUser().getId())
+                .userName(review.getUser().getUserName())
+                .productId(review.getProduct().getId())
+                .rating(review.getRating())
+                .title(review.getTitle())
+                .comment(review.getComment())
+                .isVerifiedPurchase(review.getIsVerifiedPurchase())
+                .createdAt(review.getCreatedAt())
+                .build();
     }
 }
