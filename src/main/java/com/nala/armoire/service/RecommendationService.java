@@ -23,7 +23,7 @@ public class RecommendationService {
     private final ProductRepository productRepository;
     private final OrderItemRepository orderItemRepository;
     private final ReviewRepository reviewRepository;
-    private final UserRepository userRepository;
+//     private final UserRepository userRepository;
 
     /**
      * Get best selling products (cached for 15 minutes)
