@@ -79,6 +79,15 @@ public class AdminDesignService {
         if (design.getName() == null || design.getName().isBlank()) {
             throw new BadRequestException("Design name is required");
         }
+
+        if (design.getSlug() == null || design.getSlug().isBlank()) {
+            design.setSlug(
+                    design.getName()
+                            .toLowerCase()
+                            .replaceAll("[^a-z0-9]+", "-")
+                            .replaceAll("(^-|-$)", "")
+            );
+        }
         
         if (design.getDesignImageUrl() == null || design.getDesignImageUrl().isBlank()) {
             throw new BadRequestException("Design image URL is required");
@@ -95,9 +104,6 @@ public class AdminDesignService {
 
         // Save design
         Design savedDesign = designRepository.save(design);
-
-        // Sync to Elasticsearch
-
         log.info("Admin: Created design: {} with ID: {}", savedDesign.getName(), savedDesign.getId());
 
         return mapToDTO(savedDesign);

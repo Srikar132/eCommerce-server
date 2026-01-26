@@ -1,0 +1,187 @@
+{
+    "info": {
+        "name": "AdminOrder API",
+        "description": "Postman collection for AdminOrderController endpoints.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Get All Orders",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{admin_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/admin/orders?page=0&size=20&sortBy=createdAt&sortDir=DESC",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "admin",
+                        "orders"
+                    ],
+                    "query": [
+                        {
+                            "key": "page",
+                            "value": "0"
+                        },
+                        {
+                            "key": "size",
+                            "value": "20"
+                        },
+                        {
+                            "key": "sortBy",
+                            "value": "createdAt"
+                        },
+                        {
+                            "key": "sortDir",
+                            "value": "DESC"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Orders By Status",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{admin_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/admin/orders/status/{{order_status}}?page=0&size=20",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "admin",
+                        "orders",
+                        "status",
+                        "{{order_status}}"
+                    ],
+                    "query": [
+                        {
+                            "key": "page",
+                            "value": "0"
+                        },
+                        {
+                            "key": "size",
+                            "value": "20"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Update Order Status",
+            "request": {
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{admin_token}}",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/x-www-form-urlencoded",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/admin/orders/{{order_number}}/status?status={{order_status}}&trackingNumber={{tracking_number}}&carrier={{carrier}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "admin",
+                        "orders",
+                        "{{order_number}}",
+                        "status"
+                    ],
+                    "query": [
+                        {
+                            "key": "status",
+                            "value": "{{order_status}}"
+                        },
+                        {
+                            "key": "trackingNumber",
+                            "value": "{{tracking_number}}"
+                        },
+                        {
+                            "key": "carrier",
+                            "value": "{{carrier}}"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Order Statistics",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{admin_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/admin/orders/statistics",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "admin",
+                        "orders",
+                        "statistics"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Orders Requiring Attention",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{admin_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/admin/orders/attention-required",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "admin",
+                        "orders",
+                        "attention-required"
+                    ]
+                }
+            }
+        }
+    ]
+}

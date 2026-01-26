@@ -1,0 +1,361 @@
+{
+    "info": {
+        "name": "Nala Armoire Admin Design API",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Designs",
+            "item": [
+                {
+                    "name": "Get All Designs",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/designs",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "designs"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "0"
+                                },
+                                {
+                                    "key": "size",
+                                    "value": "20"
+                                },
+                                {
+                                    "key": "sortBy",
+                                    "value": "createdAt"
+                                },
+                                {
+                                    "key": "sortDir",
+                                    "value": "DESC"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Design By ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/designs/:id",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "designs",
+                                ":id"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Design",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Sample Design\",\n  \"slug\": \"sample-design\",\n  \"category\": { \"id\": \"<category-uuid>\" },\n  \"isActive\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/designs",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "designs"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Design",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Updated Design\",\n  \"slug\": \"updated-design\",\n  \"category\": { \"id\": \"<category-uuid>\" },\n  \"isActive\": false\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/designs/:id",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "designs",
+                                ":id"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Partial Update Design",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Partially Updated Design\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/designs/:id",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "designs",
+                                ":id"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Design",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/designs/:id",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "designs",
+                                ":id"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Toggle Design Status",
+                    "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/designs/:id/status",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "designs",
+                                ":id",
+                                "status"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Design Categories",
+            "item": [
+                {
+                    "name": "Get All Categories",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/design-categories",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "design-categories"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "0"
+                                },
+                                {
+                                    "key": "size",
+                                    "value": "20"
+                                },
+                                {
+                                    "key": "sortBy",
+                                    "value": "displayOrder"
+                                },
+                                {
+                                    "key": "sortDir",
+                                    "value": "ASC"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get All Active Categories",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/design-categories/active",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "design-categories",
+                                "active"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Category By ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/design-categories/:id",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "design-categories",
+                                ":id"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Category",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Sample Category\",\n  \"slug\": \"sample-category\",\n  \"isActive\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/design-categories",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "design-categories"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Category",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Updated Category\",\n  \"slug\": \"updated-category\",\n  \"isActive\": false\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/design-categories/:id",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "design-categories",
+                                ":id"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Category",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/design-categories/:id",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "design-categories",
+                                ":id"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Toggle Category Status",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/design-categories/:id/toggle-status",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "design-categories",
+                                ":id",
+                                "toggle-status"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Reorder Categories",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "[\n  \"<uuid-1>\",\n  \"<uuid-2>\",\n  \"<uuid-3>\"\n]"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/design-categories/reorder",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "design-categories",
+                                "reorder"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

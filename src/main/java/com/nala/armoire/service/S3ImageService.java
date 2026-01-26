@@ -73,8 +73,7 @@ public class S3ImageService {
             metadata.setContentLength(file.getSize());
 
             amazonS3.putObject(new PutObjectRequest(
-                    bucketName, s3Key, file.getInputStream(), metadata)
-                    .withCannedAcl(CannedAccessControlList.PublicRead));
+                    bucketName, s3Key, file.getInputStream(), metadata));
 
             // Generate URLs (prefer CDN if available)
             String publicUrl = generatePublicUrl(s3Key);

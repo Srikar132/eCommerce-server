@@ -11,30 +11,40 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Category Data Transfer Object with flexible field inclusion
+ *
+ * When minimal=true: Returns only id, name, slug
+ * When minimal=false: Returns all fields (null fields are excluded from JSON)
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL) // This excludes null fields from JSON
+@JsonInclude(JsonInclude.Include.NON_NULL) // Excludes null fields from JSON response
 public class CategoryDTO {
+
+    // === Always Included Fields (minimal=true or false) ===
     private UUID id;
     private String name;
     private String slug;
+
+    // === Optional Fields (only when minimal=false) ===
     private String description;
     private String imageUrl;
     private UUID parentId;
-    private ParentCategoryInfo parent; // Full parent category information
+    private ParentCategoryInfo parent;
     private Integer displayOrder;
     private List<CategoryDTO> subCategories;
     private String fullPath;
-    private List<String> hierarchy; // Hierarchy path from root to current (e.g., ["Men", "Topwear", "T-Shirts"])
-    
+    private List<String> hierarchy;
+
     @JsonProperty("isActive")
     private Boolean isActive;
-    
+
     private LocalDateTime createdAt;
     private Long productCount;
-    
+
     /**
      * Simplified parent category information to avoid deep nesting
      */

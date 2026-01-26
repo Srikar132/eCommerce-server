@@ -1,0 +1,537 @@
+{
+    "info": {
+        "name": "Admin Product API",
+        "_postman_id": "c3d0e7b4-0ad3-4b46-9f7c-7b7f9b9d5f1e",
+        "description": "Admin product management endpoints (requires ADMIN role and Bearer token).",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Products",
+            "item": [
+                {
+                    "name": "List products",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products?page={{page}}&size={{size}}&sortBy={{sortBy}}&sortDir={{sortDir}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "{{page}}"
+                                },
+                                {
+                                    "key": "size",
+                                    "value": "{{size}}"
+                                },
+                                {
+                                    "key": "sortBy",
+                                    "value": "{{sortBy}}"
+                                },
+                                {
+                                    "key": "sortDir",
+                                    "value": "{{sortDir}}"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get product by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/{{productId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "{{productId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get product variants by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/{{productId}}/variants",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "{{productId}}",
+                                "variants"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create product (with variants)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Heritage Linen Shirt\",\n  \"slug\": \"heritage-linen-shirt\",\n  \"description\": \"Breathable linen shirt with tailored fit.\",\n  \"basePrice\": 2499.00,\n  \"sku\": \"HER-LIN-001\",\n  \"isCustomizable\": true,\n  \"material\": \"Linen\",\n  \"careInstructions\": \"Machine wash cold\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"isDraft\": true,\n  \"isActive\": false,\n  \"variants\": [\n    {\n      \"size\": \"M\",\n      \"color\": \"Navy\",\n      \"colorHex\": \"#001F3F\",\n      \"stockQuantity\": 20,\n      \"additionalPrice\": 0,\n      \"sku\": \"HER-LIN-001-M-NVY\",\n      \"isActive\": true,\n      \"images\": [\n        {\n          \"imageUrl\": \"https://cdn.example.com/products/heritage-linen-shirt/navy/front.jpg\",\n          \"altText\": \"Front view\",\n          \"displayOrder\": 0,\n          \"isPrimary\": true,\n          \"imageRole\": \"PREVIEW_BASE\"\n        }\n      ]\n    }\n  ]\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update product (PUT replaces variants)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Heritage Linen Shirt\",\n  \"slug\": \"heritage-linen-shirt\",\n  \"description\": \"Updated copy.\",\n  \"basePrice\": 2599.00,\n  \"sku\": \"HER-LIN-001\",\n  \"isCustomizable\": true,\n  \"material\": \"Linen\",\n  \"careInstructions\": \"Machine wash cold\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"isDraft\": false,\n  \"isActive\": true,\n  \"variants\": [\n    {\n      \"size\": \"M\",\n      \"color\": \"Navy\",\n      \"colorHex\": \"#001F3F\",\n      \"stockQuantity\": 15,\n      \"additionalPrice\": 0,\n      \"sku\": \"HER-LIN-001-M-NVY\",\n      \"isActive\": true,\n      \"images\": [\n        {\n          \"imageUrl\": \"https://cdn.example.com/products/heritage-linen-shirt/navy/front.jpg\",\n          \"altText\": \"Front view\",\n          \"displayOrder\": 0,\n          \"isPrimary\": true,\n          \"imageRole\": \"PREVIEW_BASE\"\n        }\n      ]\n    },\n    {\n      \"size\": \"L\",\n      \"color\": \"Navy\",\n      \"colorHex\": \"#001F3F\",\n      \"stockQuantity\": 10,\n      \"additionalPrice\": 100,\n      \"sku\": \"HER-LIN-001-L-NVY\",\n      \"isActive\": true,\n      \"images\": []\n    }\n  ]\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/{{productId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "{{productId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Patch product (partial)",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"description\": \"Quick debounce save\",\n  \"isDraft\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/{{productId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "{{productId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Toggle product status",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/{{productId}}/status",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "{{productId}}",
+                                "status"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Publish product",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/{{productId}}/publish",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "{{productId}}",
+                                "publish"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Unpublish product",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/{{productId}}/unpublish",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "{{productId}}",
+                                "unpublish"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete product",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/{{productId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "{{productId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Variants",
+            "item": [
+                {
+                    "name": "Add variant",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"size\": \"M\",\n  \"color\": \"Navy\",\n  \"colorHex\": \"#001F3F\",\n  \"stockQuantity\": 8,\n  \"additionalPrice\": 0,\n  \"sku\": \"HER-LIN-001-M-NVY\",\n  \"isActive\": true,\n  \"images\": [\n    {\n      \"imageUrl\": \"https://cdn.example.com/products/heritage-linen-shirt/navy/detail.jpg\",\n      \"altText\": \"Detail view\",\n      \"displayOrder\": 0,\n      \"isPrimary\": true,\n      \"imageRole\": \"PREVIEW_BASE\"\n    }\n  ]\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/{{productId}}/variants",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "{{productId}}",
+                                "variants"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update variant",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"size\": \"M\",\n  \"color\": \"Navy\",\n  \"colorHex\": \"#001F3F\",\n  \"stockQuantity\": 5,\n  \"additionalPrice\": 0,\n  \"sku\": \"HER-LIN-001-M-NVY\",\n  \"isActive\": true,\n  \"images\": [\n    {\n      \"imageUrl\": \"https://cdn.example.com/products/heritage-linen-shirt/navy/front.jpg\",\n      \"altText\": \"Front view\",\n      \"displayOrder\": 0,\n      \"isPrimary\": true,\n      \"imageRole\": \"PREVIEW_BASE\"\n    }\n  ]\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/variants/{{variantId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "variants",
+                                "{{variantId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete variant",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/variants/{{variantId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "variants",
+                                "{{variantId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update variant stock",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/variants/{{variantId}}/stock?stock={{stockValue}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "variants",
+                                "{{variantId}}",
+                                "stock"
+                            ],
+                            "query": [
+                                {
+                                    "key": "stock",
+                                    "value": "{{stockValue}}"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Analytics",
+            "item": [
+                {
+                    "name": "Low stock products",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/low-stock",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "low-stock"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Product statistics",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/products/statistics",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "products",
+                                "statistics"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "page",
+            "value": "0"
+        },
+        {
+            "key": "size",
+            "value": "20"
+        },
+        {
+            "key": "sortBy",
+            "value": "createdAt"
+        },
+        {
+            "key": "sortDir",
+            "value": "DESC"
+        },
+        {
+            "key": "stockValue",
+            "value": "5"
+        }
+    ]
+}

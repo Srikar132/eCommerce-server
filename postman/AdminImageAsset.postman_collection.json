@@ -1,0 +1,85 @@
+{
+    "info": {
+        "_postman_id": "b1e2c3d4-5678-1234-9abc-def012345678",
+        "name": "AdminImageAsset",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Upload Image",
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "file",
+                            "type": "file",
+                            "src": ""
+                        }
+                    ]
+                },
+                "url": {
+                    "raw": "{{base_url}}/admin/images/upload",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "admin",
+                        "images",
+                        "upload"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Get All Images",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/admin/images?page=0&size=20",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "admin",
+                        "images"
+                    ],
+                    "query": [
+                        {
+                            "key": "page",
+                            "value": "0"
+                        },
+                        {
+                            "key": "size",
+                            "value": "20"
+                        }
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Delete Image",
+            "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/admin/images/{{sample_image_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "admin",
+                        "images",
+                        "{{sample_image_id}}"
+                    ]
+                }
+            },
+            "response": []
+        }
+    ]
+}

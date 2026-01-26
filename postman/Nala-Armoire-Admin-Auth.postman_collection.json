@@ -1,0 +1,581 @@
+{
+    "info": {
+        "name": "Nala Armoire API - Admin & Auth",
+        "_postman_id": "5a1b3d1c-9e0b-4a7f-8b5a-collection-admin-auth",
+        "description": "Postman collection for Authentication (OTP) and Admin Category management.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:8080",
+            "type": "string"
+        },
+        {
+            "key": "phone",
+            "value": "+911234567890",
+            "type": "string"
+        },
+        {
+            "key": "otp",
+            "value": "123456",
+            "type": "string"
+        },
+        {
+            "key": "categoryId",
+            "value": "00000000-0000-0000-0000-000000000000",
+            "type": "string"
+        },
+        {
+            "key": "parentId",
+            "value": "00000000-0000-0000-0000-000000000000",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Send OTP",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/send-otp",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "send-otp"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"phone\": \"{{phone}}\"\n}"
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('OTP request success', function () {",
+                                    "  pm.response.to.be.success;",
+                                    "  pm.expect(pm.response.json().success).to.eql(true);",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Verify OTP (Login)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/verify-otp",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "verify-otp"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"otp\": \"{{otp}}\"\n}"
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Login success and cookies set', function () {",
+                                    "  pm.response.to.be.success;",
+                                    "  const jar = pm.cookies.jar();",
+                                    "  // Note: Postman automatically stores cookies for subsequent requests",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Refresh Token",
+                    "request": {
+                        "method": "POST",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/refresh",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "refresh"
+                            ]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Refresh success', function () { pm.response.to.be.success; });"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Me (Current User)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "me"
+                            ]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Fetched current user', function () { pm.response.to.be.success; });"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Logout",
+                    "request": {
+                        "method": "POST",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/logout",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "logout"
+                            ]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Logout success', function () { pm.response.to.be.success; });"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Health",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/health",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "health"
+                            ]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Auth health OK', function () { pm.response.to.be.success; });"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Admin Categories",
+            "item": [
+                {
+                    "name": "List / Tree",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories?recursive=true&minimal=false&includeInactive=true&includeProductCount=false",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories"
+                            ],
+                            "query": [
+                                {
+                                    "key": "recursive",
+                                    "value": "true"
+                                },
+                                {
+                                    "key": "minimal",
+                                    "value": "false"
+                                },
+                                {
+                                    "key": "includeInactive",
+                                    "value": "true"
+                                },
+                                {
+                                    "key": "includeProductCount",
+                                    "value": "false"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List (Paginated Roots)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories?page=0&size=20&sortBy=displayOrder&sortDir=asc",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "0"
+                                },
+                                {
+                                    "key": "size",
+                                    "value": "20"
+                                },
+                                {
+                                    "key": "sortBy",
+                                    "value": "displayOrder"
+                                },
+                                {
+                                    "key": "sortDir",
+                                    "value": "asc"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get By ID",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}?includeProductCount=false",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories",
+                                "{{categoryId}}"
+                            ],
+                            "query": [
+                                {
+                                    "key": "includeProductCount",
+                                    "value": "false"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Root Category",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Men\",\n  \"slug\": \"men\",\n  \"description\": \"Men's root category\",\n  \"imageUrl\": null,\n  \"displayOrder\": 1,\n  \"isActive\": true\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "Create Subcategory",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories/{{parentId}}/subcategories",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories",
+                                "{{parentId}}",
+                                "subcategories"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"T-Shirts\",\n  \"slug\": \"t-shirts\",\n  \"description\": \"T-Shirts category\",\n  \"imageUrl\": null,\n  \"displayOrder\": 1,\n  \"isActive\": true\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Category",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories",
+                                "{{categoryId}}"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Men\",\n  \"slug\": \"men\",\n  \"description\": \"Updated description\",\n  \"imageUrl\": null,\n  \"displayOrder\": 2,\n  \"isActive\": true\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "Toggle Status",
+                    "request": {
+                        "method": "PUT",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}/toggle-status",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories",
+                                "{{categoryId}}",
+                                "toggle-status"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Reorder Category",
+                    "request": {
+                        "method": "PUT",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}/reorder?newDisplayOrder=1",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories",
+                                "{{categoryId}}",
+                                "reorder"
+                            ],
+                            "query": [
+                                {
+                                    "key": "newDisplayOrder",
+                                    "value": "1"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Bulk Update Status",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories/bulk/status?active=true&ids={{categoryId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories",
+                                "bulk",
+                                "status"
+                            ],
+                            "query": [
+                                {
+                                    "key": "ids",
+                                    "value": "{{categoryId}}"
+                                },
+                                {
+                                    "key": "active",
+                                    "value": "true"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Category",
+                    "request": {
+                        "method": "DELETE",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}?force=false",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories",
+                                "{{categoryId}}"
+                            ],
+                            "query": [
+                                {
+                                    "key": "force",
+                                    "value": "false"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Category Stats",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories/stats",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories",
+                                "stats"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Validate Slug",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/admin/categories/validate-slug?slug=men&excludeId={{categoryId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "admin",
+                                "categories",
+                                "validate-slug"
+                            ],
+                            "query": [
+                                {
+                                    "key": "slug",
+                                    "value": "men"
+                                },
+                                {
+                                    "key": "excludeId",
+                                    "value": "{{categoryId}}"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

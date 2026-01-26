@@ -71,17 +71,43 @@ public class AdminProductController {
     }
 
     /**
+     * GET /api/v1/admin/products/{id}
+     * Get product details by ID
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductDTO> getProductById(@PathVariable UUID id) {
+        log.info("Admin: Fetching product: {}", id);
+
+        ProductDTO product = adminProductService.getProductById(id);
+
+        return ResponseEntity.ok(product);
+    }
+
+    /**
+     * GET /api/v1/admin/products/{id}/variants
+     * Get product variants by product ID (includes inactive, for admin)
+     */
+    @GetMapping("/{id}/variants")
+    public ResponseEntity<List<?>> getProductVariants(@PathVariable UUID id) {
+        log.info("Admin: Fetching variants for product: {}", id);
+
+        List<?> variants = adminProductService.getProductVariantsForAdmin(id);
+
+        return ResponseEntity.ok(variants);
+    }
+
+    /**
      * POST /api/v1/admin/products
      * Create new product with variants and images
      */
     @PostMapping
     public ResponseEntity<ProductDTO> createProduct(
             @Valid @RequestBody ProductCreateRequest request) {
-        
+
         log.info("Admin: Creating product with {} variants", request.getVariants().size());
-        
+
         ProductDTO createdProduct = adminProductService.createProductWithVariants(request);
-        
+
         return ResponseEntity.status(HttpStatus.CREATED).body(createdProduct);
     }
 
@@ -121,33 +147,33 @@ public class AdminProductController {
      * POST /api/v1/admin/products/{productId}/variants
      * Add variant to existing product
      */
-    @PostMapping("/{productId}/variants")
-    public ResponseEntity<ProductDTO> addVariant(
-            @PathVariable UUID productId,
-            @Valid @RequestBody VariantCreateRequest request) {
-        
-        log.info("Admin: Adding variant to product: {}", productId);
-        
-        ProductDTO product = adminProductService.addVariantToProduct(productId, request);
-        
-        return ResponseEntity.status(HttpStatus.CREATED).body(product);
-    }
+    // @PostMapping("/{productId}/variants")
+    // public ResponseEntity<ProductDTO> addVariant(
+    //         @PathVariable UUID productId,
+    //         @Valid @RequestBody VariantCreateRequest request) {
+
+    //     log.info("Admin: Adding variant to product: {}", productId);
+
+    //     ProductDTO product = adminProductService.addVariantToProduct(productId, request);
+
+    //     return ResponseEntity.status(HttpStatus.CREATED).body(product);
+    // }
 
     /**
      * PUT /api/v1/admin/products/variants/{variantId}
      * Update variant
      */
-    @PutMapping("/variants/{variantId}")
-    public ResponseEntity<ProductDTO> updateVariant(
-            @PathVariable UUID variantId,
-            @Valid @RequestBody VariantCreateRequest request) {
-        
-        log.info("Admin: Updating variant: {}", variantId);
-        
-        ProductDTO product = adminProductService.updateVariant(variantId, request);
-        
-        return ResponseEntity.ok(product);
-    }
+    // @PutMapping("/variants/{variantId}")
+    // public ResponseEntity<ProductDTO> updateVariant(
+    //         @PathVariable UUID variantId,
+    //         @Valid @RequestBody VariantCreateRequest request) {
+
+    //     log.info("Admin: Updating variant: {}", variantId);
+
+    //     ProductDTO product = adminProductService.updateVariant(variantId, request);
+
+    //     return ResponseEntity.ok(product);
+    // }
 
     /**
      * DELETE /api/v1/admin/products/variants/{variantId}
@@ -156,9 +182,9 @@ public class AdminProductController {
     @DeleteMapping("/variants/{variantId}")
     public ResponseEntity<Void> deleteVariant(@PathVariable UUID variantId) {
         log.info("Admin: Deleting variant: {}", variantId);
-        
+
         adminProductService.deleteVariant(variantId);
-        
+
         return ResponseEntity.noContent().build();
     }
 

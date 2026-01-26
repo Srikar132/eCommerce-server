@@ -35,8 +35,8 @@ services:
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
       
       # Redis Configuration
-      - REDIS_HOST=${REDIS_HOST:-redis}
-      - REDIS_PORT=${REDIS_PORT:-6379}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       
       # JWT Configuration

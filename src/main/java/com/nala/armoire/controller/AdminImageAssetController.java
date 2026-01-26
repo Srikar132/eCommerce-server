@@ -31,6 +31,7 @@ public class AdminImageAssetController {
 
     private final S3ImageService s3ImageService;
     private final ImageAssetRepository imageAssetRepository;
+    private final com.nala.armoire.mapper.ImageAssetMapper imageAssetMapper;
 
     /**
      * POST /api/v1/admin/images/upload
@@ -59,7 +60,7 @@ public class AdminImageAssetController {
      * @return Paged response of image assets
      */
     @GetMapping
-    public ResponseEntity<PagedResponse<ImageAsset>> getAllImages(
+    public ResponseEntity<PagedResponse<com.nala.armoire.model.dto.response.ImageAssetResponse>> getAllImages(
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
 
@@ -68,8 +69,10 @@ public class AdminImageAssetController {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<ImageAsset> images = imageAssetRepository.findAll(pageable);
 
-        PagedResponse<ImageAsset> response = PagedResponse.<ImageAsset>builder()
-                .content(images.getContent())
+        var imageResponses = imageAssetMapper.toResponseList(images.getContent());
+
+        PagedResponse<com.nala.armoire.model.dto.response.ImageAssetResponse> response = PagedResponse.<com.nala.armoire.model.dto.response.ImageAssetResponse>builder()
+                .content(imageResponses)
                 .page(images.getNumber())
                 .size(images.getSize())
                 .totalElements(images.getTotalElements())

@@ -7,6 +7,9 @@ Complete Postman collection for testing the eCommerce API with comprehensive tes
 1. **eCommerce-API.postman_collection.json** - Main API collection with all endpoints
 2. **eCommerce-API.postman_environment.json** - Local development environment
 3. **eCommerce-API-Production.postman_environment.json** - Production environment
+4. **Nala-Armoire-Admin-Auth.postman_collection.json** - Admin & Auth collection (OTP + Category management)
+5. **Nala-Armoire-Local.postman_environment.json** - Admin & Auth local environment
+6. **Nala-Armoire-Production.postman_environment.json** - Admin & Auth production environment
 
 ## 🚀 Quick Start
 
@@ -20,8 +23,8 @@ Complete Postman collection for testing the eCommerce API with comprehensive tes
 ### 2. Select Environment
 
 1. Click the environment dropdown (top right)
-2. Select **eCommerce API - Local Environment** for local testing
-3. Or select **eCommerce API - Production Environment** for production
+2. Select **eCommerce API - Local Environment** or **Nala Armoire - Local** for local testing
+3. Or select **eCommerce API - Production Environment** or **Nala Armoire - Production** for production
 
 ### 3. Configure Environment Variables
 
@@ -32,7 +35,27 @@ Before testing, update these variables in your environment:
 
 ## 📚 API Endpoints Overview
 
-### 🔐 Authentication (9 endpoints)
+### 🔐 Authentication (OTP) (6 endpoints)
+- **POST** `/api/v1/auth/send-otp` - Send OTP to phone
+- **POST** `/api/v1/auth/verify-otp` - Verify OTP and login (sets cookies)
+- **POST** `/api/v1/auth/refresh` - Refresh access token (uses cookie)
+- **GET** `/api/v1/auth/me` - Current user using cookie session
+- **POST** `/api/v1/auth/logout` - Logout and clear cookies
+- **GET** `/api/v1/auth/health` - Health check
+
+### 🛠️ Admin Categories (12 endpoints)
+- **GET** `/api/v1/admin/categories` - List / Tree (supports pagination & filters)
+- **GET** `/api/v1/admin/categories/{id}` - Get by ID (with optional product count)
+- **POST** `/api/v1/admin/categories` - Create root category
+- **POST** `/api/v1/admin/categories/{parentId}/subcategories` - Create subcategory
+- **PUT** `/api/v1/admin/categories/{id}` - Update category/move parent
+- **PUT** `/api/v1/admin/categories/{id}/toggle-status` - Toggle active status
+- **PUT** `/api/v1/admin/categories/{id}/reorder` - Update display order
+- **PUT** `/api/v1/admin/categories/bulk/status` - Bulk status update
+- **DELETE** `/api/v1/admin/categories/{id}` - Delete category
+- **GET** `/api/v1/admin/categories/stats` - Category statistics
+- **GET** `/api/v1/admin/categories/validate-slug` - Slug availability check
+
 - **POST** `/api/v1/auth/register` - Register new user
 - **POST** `/api/v1/auth/login` - Login user
 - **GET** `/api/v1/auth/me` - Get current user
@@ -101,12 +124,8 @@ Before testing, update these variables in your environment:
 
 ## 🔄 Automated Features
 
-### Token Management
-The collection automatically:
-- Extracts tokens from HTTP-only cookies after login/register
-- Stores tokens in environment variables
-- Uses Bearer token authentication for protected endpoints
-- Refreshes tokens when needed
+### Token & Cookie Management
+Auth endpoints use HTTP-only cookies. Postman will automatically store them per `baseUrl` and include them on subsequent requests. No manual token header setup is required.
 
 ### Test Scripts
 Each request includes automated tests:
@@ -115,16 +134,11 @@ Each request includes automated tests:
 - Data extraction and storage in environment variables
 - Success message validation
 
-### Variable Auto-Population
-The collection automatically stores:
-- `accessToken` - From login/register responses
-- `refreshToken` - From login/register responses  
-- `userId` - From user responses
-- `productId`, `productSlug` - From product listings
-- `cartItemId` - From cart operations
-- `customizationId` - From customization saves
-- `designId` - From design listings
-- And more...
+### Variable Setup
+- Admin & Auth environments provide:
+  - `baseUrl` (http://localhost:8080 or production host)
+  - `phone` and `otp` for OTP flows
+  - `categoryId` and `parentId` placeholders for admin tests
 
 ## 📝 Usage Examples
 

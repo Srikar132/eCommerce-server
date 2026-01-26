@@ -34,112 +34,112 @@ public class ProductService {
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final OrderItemRepository orderItemRepository;
-    
 
-    @Transactional(readOnly = true)
-    public PagedResponse<ProductDTO> getProducts(
-            List<String> categorySlugs,
-            List<String> brandSlugs,
-            BigDecimal minPrice,
-            BigDecimal maxPrice,
-            List<String> sizes,
-            List<String> colors,
-            Boolean isCustomizable,
-            String sort,
-            int page,
-            int limit) {
 
-        Specification<Product> spec = ProductSpecification.isActive()
-                .and(ProductSpecification.isNotDraft());
+    // @Transactional(readOnly = true)
+    // public PagedResponse<ProductDTO> getProducts(
+    //         List<String> categorySlugs,
+    //         List<String> brandSlugs,
+    //         BigDecimal minPrice,
+    //         BigDecimal maxPrice,
+    //         List<String> sizes,
+    //         List<String> colors,
+    //         Boolean isCustomizable,
+    //         String sort,
+    //         int page,
+    //         int limit) {
 
-        if (categorySlugs != null && !categorySlugs.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasCategorySlugs(categorySlugs));
-        }
+    //     Specification<Product> spec = ProductSpecification.isActive()
+    //             .and(ProductSpecification.isNotDraft());
 
-        if (brandSlugs != null && !brandSlugs.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasBrandSlugs(brandSlugs));
-        }
+    //     if (categorySlugs != null && !categorySlugs.isEmpty()) {
+    //         spec = spec.and(ProductSpecification.hasCategorySlugs(categorySlugs));
+    //     }
 
-        if (minPrice != null) {
-            spec = spec.and(ProductSpecification.hasPriceGreaterThanOrEqual(minPrice));
-        }
+    //     if (brandSlugs != null && !brandSlugs.isEmpty()) {
+    //         spec = spec.and(ProductSpecification.hasBrandSlugs(brandSlugs));
+    //     }
 
-        if (maxPrice != null) {
-            spec = spec.and(ProductSpecification.hasPriceLessThanOrEqual(maxPrice));
-        }
+    //     if (minPrice != null) {
+    //         spec = spec.and(ProductSpecification.hasPriceGreaterThanOrEqual(minPrice));
+    //     }
 
-        if (isCustomizable != null) {
-            spec = spec.and(ProductSpecification.isCustomizable(isCustomizable));
-        }
+    //     if (maxPrice != null) {
+    //         spec = spec.and(ProductSpecification.hasPriceLessThanOrEqual(maxPrice));
+    //     }
 
-        if (sizes != null && !sizes.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasVariantWithSizes(sizes));
-        }
+    //     if (isCustomizable != null) {
+    //         spec = spec.and(ProductSpecification.isCustomizable(isCustomizable));
+    //     }
 
-        if (colors != null && !colors.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasVariantWithColors(colors));
-        }
+    //     if (sizes != null && !sizes.isEmpty()) {
+    //         spec = spec.and(ProductSpecification.hasVariantWithSizes(sizes));
+    //     }
 
-        Sort sorting = parseSortParameter(sort);
-        Pageable pageable = PageRequest.of(page - 1, limit, sorting);
-        Page<Product> productPage = productRepository.findAll(spec, pageable);
+    //     if (colors != null && !colors.isEmpty()) {
+    //         spec = spec.and(ProductSpecification.hasVariantWithColors(colors));
+    //     }
 
-        List<ProductDTO> productDTOs = productPage.getContent()
-                .stream()
-                .map(this::mapToProductDTO)
-                .collect(Collectors.toList());
+    //     Sort sorting = parseSortParameter(sort);
+    //     Pageable pageable = PageRequest.of(page - 1, limit, sorting);
+    //     Page<Product> productPage = productRepository.findAll(spec, pageable);
 
-        System.out.println(productDTOs.size());
+    //     List<ProductDTO> productDTOs = productPage.getContent()
+    //             .stream()
+    //             .map(this::mapToProductDTO)
+    //             .collect(Collectors.toList());
 
-        return PagedResponse.<ProductDTO>builder()
-                .content(productDTOs)
-                .page(page)
-                .size(productPage.getSize())
-                .totalElements(productPage.getTotalElements())
-                .totalPages(productPage.getTotalPages())
-                .first(productPage.isFirst())
-                .last(productPage.isLast())
-                .hasNext(productPage.hasNext())
-                .hasPrevious(productPage.hasPrevious())
-                .build();
-    }
+    //     System.out.println(productDTOs.size());
 
-    private Sort parseSortParameter(String sortParam) {
-        if (sortParam == null || sortParam.trim().isEmpty()) {
-            return Sort.by(Sort.Direction.DESC, "createdAt");
-        }
+    //     return PagedResponse.<ProductDTO>builder()
+    //             .content(productDTOs)
+    //             .page(page)
+    //             .size(productPage.getSize())
+    //             .totalElements(productPage.getTotalElements())
+    //             .totalPages(productPage.getTotalPages())
+    //             .first(productPage.isFirst())
+    //             .last(productPage.isLast())
+    //             .hasNext(productPage.hasNext())
+    //             .hasPrevious(productPage.hasPrevious())
+    //             .build();
+    // }
 
-        List<Sort.Order> orders = new ArrayList<>();
-        String[] sortFields = sortParam.split(",");
+    // private Sort parseSortParameter(String sortParam) {
+    //     if (sortParam == null || sortParam.trim().isEmpty()) {
+    //         return Sort.by(Sort.Direction.DESC, "createdAt");
+    //     }
 
-        for (String field : sortFields) {
-            String[] parts = field.trim().split(":");
-            String property = parts[0].trim();
-            Sort.Direction direction = Sort.Direction.DESC;
+    //     List<Sort.Order> orders = new ArrayList<>();
+    //     String[] sortFields = sortParam.split(",");
 
-            if (parts.length > 1) {
-                direction = "asc".equalsIgnoreCase(parts[1].trim())
-                        ? Sort.Direction.ASC
-                        : Sort.Direction.DESC;
-            }
+    //     for (String field : sortFields) {
+    //         String[] parts = field.trim().split(":");
+    //         String property = parts[0].trim();
+    //         Sort.Direction direction = Sort.Direction.DESC;
 
-            if (isValidSortField(property)) {
-                orders.add(new Sort.Order(direction, property));
-            } else {
-                log.warn("Invalid sort field: {}. Using default sort.", property);
-            }
-        }
+    //         if (parts.length > 1) {
+    //             direction = "asc".equalsIgnoreCase(parts[1].trim())
+    //                     ? Sort.Direction.ASC
+    //                     : Sort.Direction.DESC;
+    //         }
 
-        return orders.isEmpty()
-                ? Sort.by(Sort.Direction.DESC, "createdAt")
-                : Sort.by(orders);
-    }
+    //         if (isValidSortField(property)) {
+    //             orders.add(new Sort.Order(direction, property));
+    //         } else {
+    //             log.warn("Invalid sort field: {}. Using default sort.", property);
+    //         }
+    //     }
 
-    private boolean isValidSortField(String field) {
-        List<String> validFields = List.of(
-                "createdAt", "updatedAt", "name", "basePrice", "averageRating");
-        return validFields.contains(field);
-    }
+    //     return orders.isEmpty()
+    //             ? Sort.by(Sort.Direction.DESC, "createdAt")
+    //             : Sort.by(orders);
+    // }
+
+    // private boolean isValidSortField(String field) {
+    //     List<String> validFields = List.of(
+    //             "createdAt", "updatedAt", "name", "basePrice", "averageRating");
+    //     return validFields.contains(field);
+    // }
 
     /**
      * Get product by slug with Redis caching
@@ -216,6 +216,147 @@ public class ProductService {
 
         return mapToReviewDTO(savedReview);
     }
+
+
+
+    /**
+     * Search products with facets for filtering
+     * Cache TTL: 5 minutes (configured in RedisConfig)
+     * Cache key includes all filter parameters to ensure correct results
+     */
+    @Cacheable(
+            value = "productSearch",
+            key = "T(java.util.Objects).hash(#categorySlugs, #brandSlugs, #minPrice, #maxPrice, #sizes, #colors, #isCustomizable, #searchQuery, #pageable.pageNumber, #pageable.pageSize, #pageable.sort)"
+    )
+    @Transactional(readOnly = true)
+    public ProductSearchResponse searchProductsWithFacets(
+            List<String> categorySlugs,
+            List<String> brandSlugs,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            List<String> sizes,
+            List<String> colors,
+            Boolean isCustomizable,
+            String searchQuery,
+            Pageable pageable) {
+
+        log.info("Fetching products from database - category: {}, brand: {}, query: {}",
+                categorySlugs, brandSlugs, searchQuery);
+
+        // Build specification for filtering
+        Specification<Product> spec = ProductSpecification.isActive()
+                .and(ProductSpecification.isNotDraft());
+
+        if (categorySlugs != null && !categorySlugs.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasCategorySlugs(categorySlugs));
+        }
+
+        if (brandSlugs != null && !brandSlugs.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasBrandSlugs(brandSlugs));
+        }
+
+        if (minPrice != null) {
+            spec = spec.and(ProductSpecification.hasPriceGreaterThanOrEqual(minPrice));
+        }
+
+        if (maxPrice != null) {
+            spec = spec.and(ProductSpecification.hasPriceLessThanOrEqual(maxPrice));
+        }
+
+        if (isCustomizable != null) {
+            spec = spec.and(ProductSpecification.isCustomizable(isCustomizable));
+        }
+
+        if (sizes != null && !sizes.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasVariantWithSizes(sizes));
+        }
+
+        if (colors != null && !colors.isEmpty()) {
+            spec = spec.and(ProductSpecification.hasVariantWithColors(colors));
+        }
+
+        if (searchQuery != null && !searchQuery.trim().isEmpty()) {
+            spec = spec.and(ProductSpecification.searchByNameOrDescription(searchQuery));
+        }
+
+        // Get paginated products
+        Page<Product> productPage = productRepository.findAll(spec, pageable);
+        List<ProductDTO> productDTOs = productPage.getContent()
+                .stream()
+                .map(this::mapToProductDTO)
+                .collect(Collectors.toList());
+
+        PagedResponse<ProductDTO> pagedProducts = PagedResponse.<ProductDTO>builder()
+                .content(productDTOs)
+                .page(productPage.getNumber())
+                .size(productPage.getSize())
+                .totalElements(productPage.getTotalElements())
+                .totalPages(productPage.getTotalPages())
+                .first(productPage.isFirst())
+                .last(productPage.isLast())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .build();
+
+        // Get facets
+        ProductFacetsDTO facets = productRepository.getProductFacets(
+                categorySlugs, brandSlugs, minPrice, maxPrice, sizes, colors,
+                isCustomizable, searchQuery);
+
+        // Mark selected facets
+        markSelectedFacets(facets, categorySlugs, brandSlugs, sizes, colors);
+
+        return ProductSearchResponse.builder()
+                .products(pagedProducts)
+                .facets(facets)
+                .build();
+    }
+
+    /**
+     * Mark which facets are currently selected
+     */
+    private void markSelectedFacets(ProductFacetsDTO facets,
+                                    List<String> selectedCategories,
+                                    List<String> selectedBrands,
+                                    List<String> selectedSizes,
+                                    List<String> selectedColors) {
+        if (facets.getCategories() != null && selectedCategories != null) {
+            facets.getCategories().forEach(cat ->
+                    cat.setSelected(selectedCategories.contains(cat.getValue())));
+        }
+
+        if (facets.getBrands() != null && selectedBrands != null) {
+            facets.getBrands().forEach(brand ->
+                    brand.setSelected(selectedBrands.contains(brand.getValue())));
+        }
+
+        if (facets.getSizes() != null && selectedSizes != null) {
+            facets.getSizes().forEach(size ->
+                    size.setSelected(selectedSizes.contains(size.getValue())));
+        }
+
+        if (facets.getColors() != null && selectedColors != null) {
+            facets.getColors().forEach(color ->
+                    color.setSelected(selectedColors.contains(color.getValue())));
+        }
+    }
+
+    /**
+     * Get product name autocomplete suggestions with Redis caching
+     * Cache TTL: 10 minutes (configured in RedisConfig)
+     */
+    @Cacheable(value = "autocomplete", key = "#query + '_' + #limit")
+    @Transactional(readOnly = true)
+    public List<String> getProductAutocomplete(String query, Integer limit) {
+        log.info("Fetching autocomplete from database for query: {}", query);
+
+        if (query == null || query.trim().isEmpty()) {
+            return List.of();
+        }
+
+        return productRepository.findProductNameAutocomplete(query.trim(), limit);
+    }
+
 
     // ==================== MAPPING METHODS ====================
 
@@ -311,143 +452,5 @@ public class ProductService {
                 .isVerifiedPurchase(review.getIsVerifiedPurchase())
                 .createdAt(review.getCreatedAt())
                 .build();
-    }
-
-    /**
-     * Search products with facets for filtering
-     * Cache TTL: 5 minutes (configured in RedisConfig)
-     * Cache key includes all filter parameters to ensure correct results
-     */
-    @Cacheable(
-        value = "productSearch",
-        key = "T(java.util.Objects).hash(#categorySlugs, #brandSlugs, #minPrice, #maxPrice, #sizes, #colors, #isCustomizable, #searchQuery, #pageable.pageNumber, #pageable.pageSize, #pageable.sort)"
-    )
-    @Transactional(readOnly = true)
-    public ProductSearchResponse searchProductsWithFacets(
-            List<String> categorySlugs,
-            List<String> brandSlugs,
-            BigDecimal minPrice,
-            BigDecimal maxPrice,
-            List<String> sizes,
-            List<String> colors,
-            Boolean isCustomizable,
-            String searchQuery,
-            Pageable pageable) {
-
-        log.info("Fetching products from database - category: {}, brand: {}, query: {}", 
-                categorySlugs, brandSlugs, searchQuery);
-
-        // Build specification for filtering
-        Specification<Product> spec = ProductSpecification.isActive()
-                .and(ProductSpecification.isNotDraft());
-
-        if (categorySlugs != null && !categorySlugs.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasCategorySlugs(categorySlugs));
-        }
-
-        if (brandSlugs != null && !brandSlugs.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasBrandSlugs(brandSlugs));
-        }
-
-        if (minPrice != null) {
-            spec = spec.and(ProductSpecification.hasPriceGreaterThanOrEqual(minPrice));
-        }
-
-        if (maxPrice != null) {
-            spec = spec.and(ProductSpecification.hasPriceLessThanOrEqual(maxPrice));
-        }
-
-        if (isCustomizable != null) {
-            spec = spec.and(ProductSpecification.isCustomizable(isCustomizable));
-        }
-
-        if (sizes != null && !sizes.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasVariantWithSizes(sizes));
-        }
-
-        if (colors != null && !colors.isEmpty()) {
-            spec = spec.and(ProductSpecification.hasVariantWithColors(colors));
-        }
-
-        if (searchQuery != null && !searchQuery.trim().isEmpty()) {
-            spec = spec.and(ProductSpecification.searchByNameOrDescription(searchQuery));
-        }
-
-        // Get paginated products
-        Page<Product> productPage = productRepository.findAll(spec, pageable);
-        List<ProductDTO> productDTOs = productPage.getContent()
-                .stream()
-                .map(this::mapToProductDTO)
-                .collect(Collectors.toList());
-
-        PagedResponse<ProductDTO> pagedProducts = PagedResponse.<ProductDTO>builder()
-                .content(productDTOs)
-                .page(productPage.getNumber())
-                .size(productPage.getSize())
-                .totalElements(productPage.getTotalElements())
-                .totalPages(productPage.getTotalPages())
-                .first(productPage.isFirst())
-                .last(productPage.isLast())
-                .hasNext(productPage.hasNext())
-                .hasPrevious(productPage.hasPrevious())
-                .build();
-
-        // Get facets
-        ProductFacetsDTO facets = productRepository.getProductFacets(
-                categorySlugs, brandSlugs, minPrice, maxPrice, sizes, colors, 
-                isCustomizable, searchQuery);
-
-        // Mark selected facets
-        markSelectedFacets(facets, categorySlugs, brandSlugs, sizes, colors);
-
-        return ProductSearchResponse.builder()
-                .products(pagedProducts)
-                .facets(facets)
-                .build();
-    }
-
-    /**
-     * Mark which facets are currently selected
-     */
-    private void markSelectedFacets(ProductFacetsDTO facets, 
-                                     List<String> selectedCategories,
-                                     List<String> selectedBrands,
-                                     List<String> selectedSizes,
-                                     List<String> selectedColors) {
-        if (facets.getCategories() != null && selectedCategories != null) {
-            facets.getCategories().forEach(cat -> 
-                cat.setSelected(selectedCategories.contains(cat.getValue())));
-        }
-
-        if (facets.getBrands() != null && selectedBrands != null) {
-            facets.getBrands().forEach(brand -> 
-                brand.setSelected(selectedBrands.contains(brand.getValue())));
-        }
-
-        if (facets.getSizes() != null && selectedSizes != null) {
-            facets.getSizes().forEach(size -> 
-                size.setSelected(selectedSizes.contains(size.getValue())));
-        }
-
-        if (facets.getColors() != null && selectedColors != null) {
-            facets.getColors().forEach(color -> 
-                color.setSelected(selectedColors.contains(color.getValue())));
-        }
-    }
-
-    /**
-     * Get product name autocomplete suggestions with Redis caching
-     * Cache TTL: 10 minutes (configured in RedisConfig)
-     */
-    @Cacheable(value = "autocomplete", key = "#query + '_' + #limit")
-    @Transactional(readOnly = true)
-    public List<String> getProductAutocomplete(String query, Integer limit) {
-        log.info("Fetching autocomplete from database for query: {}", query);
-
-        if (query == null || query.trim().isEmpty()) {
-            return List.of();
-        }
-
-        return productRepository.findProductNameAutocomplete(query.trim(), limit);
     }
 }

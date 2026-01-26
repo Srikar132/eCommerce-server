@@ -2,8 +2,10 @@ package com.nala.armoire.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -57,6 +59,10 @@ public class ProductVariant {
     @OrderBy("displayOrder ASC, isPrimary DESC")
     @Builder.Default
     private List<ProductImage> images = new ArrayList<>();
+
+    @Column(name = "created_at", updatable = false)
+    @CreationTimestamp
+    private LocalDateTime createdAt;
 
     // Helper method to add image
     public void addImage(ProductImage image) {
