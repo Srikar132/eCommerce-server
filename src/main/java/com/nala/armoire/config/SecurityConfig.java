@@ -45,7 +45,8 @@ public class SecurityConfig {
 
                         //public endpoints
                         .requestMatchers(
-                                "/api/v1/auth/**",
+                                "/api/v1/auth/send-otp",
+                                "/api/v1/auth/verify-otp",
                                 "/api/v1/products/**",
                                 "/api/v1/categories/**",
                                 "/api/v1/brands/**",

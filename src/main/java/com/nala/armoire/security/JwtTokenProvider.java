@@ -19,9 +19,6 @@ public class JwtTokenProvider {
     @Value("${jwt.access-token-expiration}")
     private Long accessTokenExpiration;
 
-    @Value("${jwt.refresh-token-expiration}")
-    private Long refreshTokenExpiration;
-
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
@@ -37,19 +34,6 @@ public class JwtTokenProvider {
                 .claim("emailVerified" , user.getEmailVerified())
                 .claim("phone" , user.getPhone())
                 .claim("username" , user.getUserName())
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(getSigningKey())
-                .compact();
-    }
-
-    public String generateRefreshToken(UUID userId) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + refreshTokenExpiration);
-
-        return Jwts.builder()
-                .setSubject(userId.toString())
-                .claim("jti", UUID.randomUUID().toString())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey())

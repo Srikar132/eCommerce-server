@@ -60,6 +60,9 @@ public class CartService {
     }
 
     public CartResponse getCartByUserId(UUID userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
         return getCart(findUserById(userId));
     }
 

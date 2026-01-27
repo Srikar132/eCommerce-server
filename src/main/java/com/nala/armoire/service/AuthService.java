@@ -8,9 +8,7 @@ import com.nala.armoire.model.dto.request.VerifyOtpRequest;
 import com.nala.armoire.model.dto.response.MessageResponse;
 import com.nala.armoire.model.dto.response.SendOtpResponse;
 import com.nala.armoire.model.dto.response.UserResponse;
-import com.nala.armoire.model.entity.RefreshToken;
 import com.nala.armoire.model.entity.User;
-import com.nala.armoire.repository.RefreshTokenRepository;
 import com.nala.armoire.repository.UserRepository;
 import com.nala.armoire.security.JwtTokenProvider;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -36,7 +34,6 @@ import java.util.UUID;
 public class AuthService {
 
     private final UserRepository userRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
     private final OtpService otpService;
     private final SmsService smsService;
     private final JwtTokenProvider tokenProvider;
@@ -44,8 +41,8 @@ public class AuthService {
     @Value("${otp.expiration:300}")
     private int otpExpiration;
 
-    @Value("${jwt.refresh-token-expiration}")
-    private Long refreshTokenExpiration;
+    @Value("${jwt.access-token-expiration}")
+    private Long accessTokenExpiration;
 
     /**
      * Send OTP to phone number
@@ -82,7 +79,7 @@ public class AuthService {
      * Verify OTP and login/register user
      */
     @Transactional
-    public TokenPair verifyOtpAndLogin(VerifyOtpRequest request) {
+    public AuthToken verifyOtpAndLogin(VerifyOtpRequest request) {
         // 1. Validate phone number
         String formattedPhone = validateAndFormatPhone(request.getPhone());
 
@@ -116,60 +113,13 @@ public class AuthService {
         user.setLockedUntil(null);
         userRepository.save(user);
 
-        // 7. Generate tokens
-        return generateTokenPair(user);
+        // 7. Generate access token
+        return generateAuthToken(user);
     }
 
     /**
-     * Refresh access token
-     */
-    @Transactional
-    public TokenPair refreshToken(String refreshTokenString) {
-        try {
-            // 1. Validate the refresh token
-            if (!tokenProvider.validateToken(refreshTokenString)) {
-                throw new UnauthorizedException("Invalid refresh token");
-            }
-
-            // 2. Find refresh token in the database
-            RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenString)
-                .orElseThrow(() -> new UnauthorizedException("Refresh token not found. Please login again."));
-
-            // 3. Check if revoked or expired
-            if (refreshToken.getRevoked()) {
-                throw new UnauthorizedException("Refresh token has been revoked. Please login again.");
-            }
-            
-            if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
-                refreshTokenRepository.delete(refreshToken);
-                throw new UnauthorizedException("Refresh token has expired. Please login again.");
-            }
-
-            // 4. Get user
-            User user = refreshToken.getUser();
-            
-            if (!user.getIsActive()) {
-                throw new UnauthorizedException("Account is inactive. Please contact support.");
-            }
-
-            // 5. Delete old refresh token
-            refreshTokenRepository.delete(refreshToken);
-
-            log.info("Token refreshed successfully for user: {}", user.getId());
-
-            // 6. Generate new tokens
-            return generateTokenPair(user);
-            
-        } catch (UnauthorizedException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Unexpected error during token refresh: {}", ex.getMessage(), ex);
-            throw new UnauthorizedException("Failed to refresh token. Please login again.");
-        }
-    }
-
-    /**
-     * Logout user
+     * Logout user (for stateless JWT, this is a no-op on server side)
+     * Client should discard the token
      */
     @Transactional
     public MessageResponse logout(UUID userId) {
@@ -180,14 +130,10 @@ public class AuthService {
         userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Delete all refresh tokens for this user
-        refreshTokenRepository.deleteByUserId(userId);
-        refreshTokenRepository.flush();
-
         log.info("User logged out: {}", userId);
 
         return MessageResponse.builder()
-            .message("Logged out successfully")
+            .message("Logged out successfully. Please discard your access token.")
             .success(true)
             .build();
     }
@@ -267,30 +213,18 @@ public class AuthService {
     }
 
     /**
-     * Generate tokens and save refresh token
+     * Generate access token
      */
-    private TokenPair generateTokenPair(User user) {
+    private AuthToken generateAuthToken(User user) {
         // Generate access token
         String accessToken = tokenProvider.generateAccessToken(user);
 
-        // Generate refresh token
-        String refreshTokenString = tokenProvider.generateRefreshToken(user.getId());
+        log.info("Access token generated successfully for user: {}", user.getId());
 
-        // Save refresh token to database
-        RefreshToken refreshToken = RefreshToken.builder()
-                .token(refreshTokenString)
-                .user(user)
-                .revoked(false)
-                .expiresAt(LocalDateTime.now().plusSeconds(refreshTokenExpiration / 1000))
-                .build();
-
-        refreshTokenRepository.save(refreshToken);
-
-        log.info("Tokens generated successfully for user: {}", user.getId());
-
-        return TokenPair.builder()
+        return AuthToken.builder()
             .accessToken(accessToken)
-            .refreshToken(refreshTokenString)
+            .tokenType("Bearer")
+            .expiresIn(accessTokenExpiration / 1000) // Convert to seconds
             .user(mapToUserResponse(user))
             .build();
     }
@@ -318,14 +252,15 @@ public class AuthService {
     }
 
     /**
-     * Token pair holder
+     * Auth token holder
      */
     @Data
     @Builder
     @AllArgsConstructor
-    public static class TokenPair {
+    public static class AuthToken {
         private String accessToken;
-        private String refreshToken;
+        private String tokenType;
+        private Long expiresIn; // in seconds
         private UserResponse user;
     }
 }
