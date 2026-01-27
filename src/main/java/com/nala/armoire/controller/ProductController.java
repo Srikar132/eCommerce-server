@@ -57,10 +57,17 @@ public class ProductController {
 
     /**
      * GET /api/v1/products/best-sellers - Get Best Selling Products
+<<<<<<< HEAD
      * 
      * Returns top selling products based on order history
      * Can be used on homepage, category pages, or anywhere you want to showcase popular items
      * 
+=======
+     *
+     * Returns top selling products based on order history
+     * Can be used on homepage, category pages, or anywhere you want to showcase popular items
+     *
+>>>>>>> 80d12ff3fd705cd0a34eae61921a646c767e2f82
      * Example: /api/v1/products/best-sellers?limit=8
      * Example: /api/v1/products/best-sellers?category=men&limit=6
      */
@@ -78,15 +85,19 @@ public class ProductController {
 
     /**
      * GET /api/v1/products/recommendations - Get Personalized Product Recommendations
+<<<<<<< HEAD
      * 
+=======
+     *
+>>>>>>> 80d12ff3fd705cd0a34eae61921a646c767e2f82
      * Returns personalized recommendations based on:
      * - User's purchase history
      * - User's browsing behavior
      * - User's preferences (if available)
      * - Popular items (fallback for new users)
-     * 
+     *
      * Can be used anywhere in the app: homepage, product pages, cart, checkout, etc.
-     * 
+     *
      * Examples:
      * - /api/v1/products/recommendations?limit=8 (authenticated user)
      * - /api/v1/products/recommendations?excludeProductId=uuid&limit=6 (on product detail page)
@@ -99,7 +110,7 @@ public class ProductController {
             @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "10") Integer limit
     ) {
-        log.info("GET /api/v1/products/recommendations - userId: {}, category: {}, limit: {}", 
+        log.info("GET /api/v1/products/recommendations - userId: {}, category: {}, limit: {}",
                 currentUser != null ? currentUser.getId() : "guest", category, limit);
 
         List<ProductDTO> recommendations = recommendationService.getPersonalizedRecommendations(

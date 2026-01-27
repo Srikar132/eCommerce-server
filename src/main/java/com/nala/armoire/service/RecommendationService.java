@@ -23,16 +23,16 @@ public class RecommendationService {
     private final ProductRepository productRepository;
     private final OrderItemRepository orderItemRepository;
     private final ReviewRepository reviewRepository;
-//     private final UserRepository userRepository;
+    private final UserRepository userRepository;
 
     /**
      * Get best selling products (cached for 15 minutes)
-     * 
+     *
      * Algorithm:
      * 1. Count total quantity sold for each product
      * 2. Filter by category if provided
      * 3. Return top N products by sales count
-     * 
+     *
      * @param categorySlug Optional category filter (supports hierarchical - e.g., "men" includes "men-tshirts")
      * @param limit Number of products to return
      */
@@ -42,7 +42,7 @@ public class RecommendationService {
         log.info("Fetching best sellers - category: {}, limit: {}", categorySlug, limit);
 
         List<UUID> bestSellerIds = orderItemRepository.findBestSellingProductIds(
-                categorySlug, 
+                categorySlug,
                 PageRequest.of(0, limit)
         );
 
@@ -53,11 +53,11 @@ public class RecommendationService {
 
         // Fetch products and maintain order
         List<Product> products = productRepository.findAllById(bestSellerIds);
-        
+
         // Map to DTOs while preserving the order from bestSellerIds
         Map<UUID, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
-        
+
         return bestSellerIds.stream()
                 .map(productMap::get)
                 .filter(Objects::nonNull)
@@ -68,17 +68,17 @@ public class RecommendationService {
 
     /**
      * Get personalized product recommendations
-     * 
+     *
      * Multi-tier recommendation algorithm:
-     * 
+     *
      * For authenticated users:
      * 1. Get products from categories the user has purchased from
      * 2. Get products similar to what they've reviewed positively
      * 3. Fill remaining with best sellers
-     * 
+     *
      * For guest users:
      * - Return best sellers or trending products
-     * 
+     *
      * @param userId Optional user ID (null for guest users)
      * @param excludeProductId Optional product to exclude (useful on product detail pages)
      * @param categorySlug Optional category filter
@@ -86,12 +86,12 @@ public class RecommendationService {
      */
     @Transactional(readOnly = true)
     public List<ProductDTO> getPersonalizedRecommendations(
-            UUID userId, 
+            UUID userId,
             String excludeProductId,
             String categorySlug,
             Integer limit) {
-        
-        log.info("Generating recommendations - userId: {}, category: {}, limit: {}", 
+
+        log.info("Generating recommendations - userId: {}, category: {}, limit: {}",
                 userId, categorySlug, limit);
 
         List<ProductDTO> recommendations = new ArrayList<>();
@@ -125,11 +125,11 @@ public class RecommendationService {
      * Generate personalized recommendations for authenticated users
      */
     private List<ProductDTO> getPersonalizedForUser(
-            UUID userId, 
+            UUID userId,
             String excludeProductId,
             String categorySlug,
             Integer limit) {
-        
+
         Set<ProductDTO> recommendations = new LinkedHashSet<>(); // Maintain order, avoid duplicates
 
         // Step 1: Get categories user has purchased from
@@ -139,7 +139,7 @@ public class RecommendationService {
         if (!userPreferredCategories.isEmpty()) {
             // Get products from user's preferred categories
             List<ProductDTO> categoryBasedRecs = getProductsFromCategories(
-                    userPreferredCategories, 
+                    userPreferredCategories,
                     excludeProductId,
                     limit
             );
@@ -149,7 +149,7 @@ public class RecommendationService {
         // Step 2: If category filter specified, add more from that category
         if (categorySlug != null && recommendations.size() < limit) {
             List<ProductDTO> categoryProducts = getBestSellingProducts(
-                    categorySlug, 
+                    categorySlug,
                     limit - recommendations.size()
             );
             recommendations.addAll(categoryProducts);
@@ -170,10 +170,10 @@ public class RecommendationService {
      * Get products from specified categories
      */
     private List<ProductDTO> getProductsFromCategories(
-            List<String> categorySlugs, 
+            List<String> categorySlugs,
             String excludeProductId,
             Integer limit) {
-        
+
         Specification<Product> spec = ProductSpecification.isActive()
                 .and(ProductSpecification.isNotDraft())
                 .and(ProductSpecification.hasCategorySlugs(categorySlugs));

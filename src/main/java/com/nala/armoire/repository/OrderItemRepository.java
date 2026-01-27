@@ -31,11 +31,19 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
 
     /**
      * Find best selling product IDs
+<<<<<<< HEAD
      * 
      * Returns products ordered by total quantity sold (descending)
      * Optionally filtered by category (supports hierarchical categories)
      * Only includes completed/delivered orders
      * 
+=======
+     *
+     * Returns products ordered by total quantity sold (descending)
+     * Optionally filtered by category (supports hierarchical categories)
+     * Only includes completed/delivered orders
+     *
+>>>>>>> 80d12ff3fd705cd0a34eae61921a646c767e2f82
      * @param categorySlug Optional category filter (null = all categories)
      * @param pageable Pagination (use for limit)
      */
@@ -60,10 +68,17 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
 
     /**
      * Find categories that a user has purchased from
+<<<<<<< HEAD
      * 
      * Returns category slugs ordered by purchase frequency
      * Only includes completed/delivered orders
      * 
+=======
+     *
+     * Returns category slugs ordered by purchase frequency
+     * Only includes completed/delivered orders
+     *
+>>>>>>> 80d12ff3fd705cd0a34eae61921a646c767e2f82
      * @param userId User ID
      */
     @Query("""
@@ -79,10 +94,17 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
 
     /**
      * Find products frequently bought together with a given product
+<<<<<<< HEAD
      * 
      * Finds products that appear in the same orders as the specified product
      * Useful for "Customers who bought this also bought" recommendations
      * 
+=======
+     *
+     * Finds products that appear in the same orders as the specified product
+     * Useful for "Customers who bought this also bought" recommendations
+     *
+>>>>>>> 80d12ff3fd705cd0a34eae61921a646c767e2f82
      * @param productId The reference product ID
      * @param pageable Pagination (use for limit)
      */

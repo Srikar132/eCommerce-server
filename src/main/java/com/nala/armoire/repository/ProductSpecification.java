@@ -23,7 +23,11 @@ public class ProductSpecification {
     /**
      * Filter products by category slugs INCLUDING all child categories (OR logic)
      * Example: category=men -> returns products in "men" AND "men-tshirts", "men-bottomwear", etc.
+<<<<<<< HEAD
      * 
+=======
+     *
+>>>>>>> 80d12ff3fd705cd0a34eae61921a646c767e2f82
      * This performs a hierarchical search:
      * 1. Find products directly in the specified category
      * 2. Find products in any child category (recursive)
@@ -35,30 +39,30 @@ public class ProductSpecification {
             }
 
             Join<Product, Category> categoryJoin = root.join("category", JoinType.INNER);
-            
+
             // Create a list to hold all predicates
             List<Predicate> categoryPredicates = new ArrayList<>();
-            
+
             for (String categorySlug : categorySlugs) {
                 // Match direct category
                 Predicate directMatch = cb.equal(categoryJoin.get("slug"), categorySlug);
-                
+
                 // Match child categories (where parent.slug = categorySlug)
                 Predicate childMatch = cb.equal(
-                    categoryJoin.get("parent").get("slug"), 
-                    categorySlug
+                        categoryJoin.get("parent").get("slug"),
+                        categorySlug
                 );
-                
+
                 // Match grandchild categories (where parent.parent.slug = categorySlug)
                 Predicate grandchildMatch = cb.equal(
-                    categoryJoin.get("parent").get("parent").get("slug"), 
-                    categorySlug
+                        categoryJoin.get("parent").get("parent").get("slug"),
+                        categorySlug
                 );
-                
+
                 // Combine: direct OR child OR grandchild
                 categoryPredicates.add(cb.or(directMatch, childMatch, grandchildMatch));
             }
-            
+
             // Combine all category predicates with OR
             return cb.or(categoryPredicates.toArray(new Predicate[0]));
         };

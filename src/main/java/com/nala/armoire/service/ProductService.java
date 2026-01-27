@@ -31,7 +31,7 @@ public class ProductService {
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final OrderItemRepository orderItemRepository;
-    
+
 
     // @Transactional(readOnly = true)
     // public PagedResponse<ProductDTO> getProducts(
@@ -222,8 +222,8 @@ public class ProductService {
      * Cache key includes all filter parameters to ensure correct results
      */
     @Cacheable(
-        value = "productSearch",
-        key = "T(java.util.Objects).hash(#categorySlugs, #brandSlugs, #minPrice, #maxPrice, #sizes, #colors, #isCustomizable, #searchQuery, #pageable.pageNumber, #pageable.pageSize, #pageable.sort)"
+            value = "productSearch",
+            key = "T(java.util.Objects).hash(#categorySlugs, #brandSlugs, #minPrice, #maxPrice, #sizes, #colors, #isCustomizable, #searchQuery, #pageable.pageNumber, #pageable.pageSize, #pageable.sort)"
     )
     @Transactional(readOnly = true)
     public ProductSearchResponse searchProductsWithFacets(
@@ -237,7 +237,7 @@ public class ProductService {
             String searchQuery,
             Pageable pageable) {
 
-        log.info("Fetching products from database - category: {}, brand: {}, query: {}", 
+        log.info("Fetching products from database - category: {}, brand: {}, query: {}",
                 categorySlugs, brandSlugs, searchQuery);
 
         // Build specification for filtering
@@ -297,7 +297,7 @@ public class ProductService {
 
         // Get facets
         ProductFacetsDTO facets = productRepository.getProductFacets(
-                categorySlugs, brandSlugs, minPrice, maxPrice, sizes, colors, 
+                categorySlugs, brandSlugs, minPrice, maxPrice, sizes, colors,
                 isCustomizable, searchQuery);
 
         // Mark selected facets
@@ -312,29 +312,29 @@ public class ProductService {
     /**
      * Mark which facets are currently selected
      */
-    private void markSelectedFacets(ProductFacetsDTO facets, 
-                                     List<String> selectedCategories,
-                                     List<String> selectedBrands,
-                                     List<String> selectedSizes,
-                                     List<String> selectedColors) {
+    private void markSelectedFacets(ProductFacetsDTO facets,
+                                    List<String> selectedCategories,
+                                    List<String> selectedBrands,
+                                    List<String> selectedSizes,
+                                    List<String> selectedColors) {
         if (facets.getCategories() != null && selectedCategories != null) {
-            facets.getCategories().forEach(cat -> 
-                cat.setSelected(selectedCategories.contains(cat.getValue())));
+            facets.getCategories().forEach(cat ->
+                    cat.setSelected(selectedCategories.contains(cat.getValue())));
         }
 
         if (facets.getBrands() != null && selectedBrands != null) {
-            facets.getBrands().forEach(brand -> 
-                brand.setSelected(selectedBrands.contains(brand.getValue())));
+            facets.getBrands().forEach(brand ->
+                    brand.setSelected(selectedBrands.contains(brand.getValue())));
         }
 
         if (facets.getSizes() != null && selectedSizes != null) {
-            facets.getSizes().forEach(size -> 
-                size.setSelected(selectedSizes.contains(size.getValue())));
+            facets.getSizes().forEach(size ->
+                    size.setSelected(selectedSizes.contains(size.getValue())));
         }
 
         if (facets.getColors() != null && selectedColors != null) {
-            facets.getColors().forEach(color -> 
-                color.setSelected(selectedColors.contains(color.getValue())));
+            facets.getColors().forEach(color ->
+                    color.setSelected(selectedColors.contains(color.getValue())));
         }
     }
 
@@ -355,7 +355,7 @@ public class ProductService {
     }
 
 
-        // ==================== MAPPING METHODS ====================
+    // ==================== MAPPING METHODS ====================
 
     // CHANGED: Extract primary image from first active variant
     private ProductDTO mapToProductDTO(Product product) {

@@ -5,7 +5,9 @@ import com.nala.armoire.model.dto.request.ImageCreateRequest;
 import com.nala.armoire.model.dto.request.ProductCreateRequest;
 import com.nala.armoire.model.dto.request.ProductUpdateRequest;
 import com.nala.armoire.model.dto.request.VariantCreateRequest;
+import com.nala.armoire.model.dto.response.ImageDTO;
 import com.nala.armoire.model.dto.response.ProductDTO;
+import com.nala.armoire.model.dto.response.VariantDTO;
 import com.nala.armoire.model.entity.Brand;
 import com.nala.armoire.model.entity.Category;
 import com.nala.armoire.model.entity.Product;
@@ -24,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Admin Product Management Service
@@ -52,6 +56,39 @@ public class AdminProductService {
     public Page<ProductDTO> getAllProducts(Pageable pageable) {
         Page<Product> products = productRepository.findAll(pageable);
         return products.map(this::mapToDTO);
+    }
+
+    /**
+     * Get product by ID
+     */
+    @Transactional(readOnly = true)
+    public ProductDTO getProductById(UUID productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        return mapToDTO(product);
+    }
+
+    /**
+     * Get all variants for a product by ID (includes inactive, for admin)
+     * Returns DTOs to prevent lazy loading and circular reference issues
+     */
+    @Transactional(readOnly = true)
+    public List<VariantDTO> getProductVariantsForAdmin(UUID productId) {
+        // Verify product exists first
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+        log.info("Admin: Fetching variants for product: {}, isDraft: {}", productId, product.getIsDraft());
+
+        // Fetch variants with images eagerly loaded (prevents lazy loading exception)
+        List<ProductVariant> variants = productVariantRepository.findByProductIdWithImages(productId);
+
+        log.info("Admin: Found {} variants for product: {}", variants.size(), productId);
+
+        // Convert to DTOs to avoid serialization issues
+        return variants.stream()
+                .map(this::mapVariantToDTO)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -110,7 +147,7 @@ public class AdminProductService {
                         .isPrimary(imgReq.getIsPrimary())
                         .imageRole(imgReq.getImageRole())
                         .build();
-                
+
                 variant.addImage(image);
             }
 
@@ -123,7 +160,7 @@ public class AdminProductService {
         if (!savedProduct.getIsDraft()) {
         }
 
-        log.info("Created product {} with {} variants", 
+        log.info("Created product {} with {} variants",
                 savedProduct.getId(), savedProduct.getVariants().size());
 
         return mapToDTO(savedProduct);
@@ -191,7 +228,7 @@ public class AdminProductService {
         if (request.getVariants() != null && !request.getVariants().isEmpty()) {
             // Clear existing variants
             existingProduct.getVariants().clear();
-            
+
             // Add new variants
             for (VariantCreateRequest varReq : request.getVariants()) {
                 ProductVariant variant = ProductVariant.builder()
@@ -213,7 +250,7 @@ public class AdminProductService {
                             .isPrimary(imgReq.getIsPrimary())
                             .imageRole(imgReq.getImageRole())
                             .build();
-                    
+
                     variant.addImage(image);
                 }
 
@@ -222,16 +259,6 @@ public class AdminProductService {
         }
 
         Product savedProduct = productRepository.save(existingProduct);
-
-        // Sync to Elasticsearch only if not a draft
-        if (!savedProduct.getIsDraft()) {
-        } else {
-            // If product became draft, remove from Elasticsearch
-            try {
-            } catch (Exception e) {
-                log.warn("Failed to remove draft product from Elasticsearch: {}", e.getMessage());
-            }
-        }
 
         log.info("Admin: Updated product: {} (draft: {})", savedProduct.getId(), savedProduct.getIsDraft());
 
@@ -265,7 +292,7 @@ public class AdminProductService {
                     .isPrimary(imgReq.getIsPrimary())
                     .imageRole(imgReq.getImageRole())
                     .build();
-            
+
             variant.addImage(image);
         }
 
@@ -307,7 +334,7 @@ public class AdminProductService {
                     .isPrimary(imgReq.getIsPrimary())
                     .imageRole(imgReq.getImageRole())
                     .build();
-            
+
             variant.addImage(image);
         }
 
@@ -361,7 +388,7 @@ public class AdminProductService {
         if (product.getIsDraft() == null) {
             product.setIsDraft(true); // Default to draft for new products
         }
-        
+
         if (product.getIsActive() == null) {
             product.setIsActive(false); // Inactive by default for drafts
         }
@@ -618,6 +645,49 @@ public class AdminProductService {
         return mapToDTO(product);
     }
 
+
+    /**
+     * Map ProductVariant entity to VariantDTO
+     */
+
+    /**
+     * Map ProductVariant entity to VariantDTO
+     * Safely converts entity to DTO, breaking circular references
+     */
+    private VariantDTO mapVariantToDTO(ProductVariant variant) {
+        // Map images (collection is already fetched, so this is safe)
+        List<ImageDTO> images = variant.getImages().stream()
+                .map(img -> ImageDTO.builder()
+                        .id(img.getId())
+                        .imageUrl(img.getImageUrl())
+                        .altText(img.getAltText())
+                        .displayOrder(img.getDisplayOrder())
+                        .isPrimary(img.getIsPrimary())
+//                        .imageRole(img.getImageRole())
+                        .build())
+                .collect(Collectors.toList());
+
+        // Build DTO
+        VariantDTO.VariantDTOBuilder builder = VariantDTO.builder()
+                .id(variant.getId())
+                .productId(variant.getProduct().getId())
+                .size(variant.getSize())
+                .color(variant.getColor())
+                .colorHex(variant.getColorHex())
+                .stockQuantity(variant.getStockQuantity())
+                .additionalPrice(variant.getAdditionalPrice())
+                .sku(variant.getSku())
+                .isActive(variant.getIsActive())
+                .images(images);
+
+        // Add createdAt and updatedAt if they exist in your entity
+        // If ProductVariant extends BaseEntity with these fields, uncomment:
+        // .createdAt(variant.getCreatedAt())
+        // .updatedAt(variant.getUpdatedAt());
+
+        return builder.build();
+    }
+
     private ProductDTO mapToDTO(Product product) {
         // Extract primary image from first active variant
         String primaryImageUrl = product.getVariants().stream()
@@ -633,8 +703,7 @@ public class AdminProductService {
                                 .flatMap(v -> v.getImages().stream())
                                 .findFirst()
                                 .map(img -> img.getImageUrl())
-                                .orElse(null)
-                );
+                                .orElse(null));
 
         return ProductDTO.builder()
                 .id(product.getId())

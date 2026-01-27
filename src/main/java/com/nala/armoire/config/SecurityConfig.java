@@ -1,9 +1,14 @@
 package com.nala.armoire.config;
 
+import com.nala.armoire.security.CustomUserDetailsService;
 import com.nala.armoire.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,10 +23,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 
-/**
- * Security Configuration for Phone OTP Authentication
- * PasswordEncoder is still needed for OTP hashing
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -29,14 +30,7 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
-
-    /**
-     * PasswordEncoder bean for OTP hashing (not for user passwords)
-     */
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+    private final CustomUserDetailsService userDetailsService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -51,10 +45,7 @@ public class SecurityConfig {
 
                         //public endpoints
                         .requestMatchers(
-                                 "/api/v1/auth/send-otp",      // Add this
-                                "/api/v1/auth/verify-otp",    // Add this
-                                "/api/v1/auth/refresh",
-                                "/api/v1/auth/health",
+                                "/api/v1/auth/**",
                                 "/api/v1/products/**",
                                 "/api/v1/categories/**",
                                 "/api/v1/brands/**",
@@ -68,7 +59,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
 
-                                //  razorpay webhook
+                                //  razotpay webhook
                                 "/api/v1/webhooks/**"
 
                         ).permitAll()
@@ -77,9 +68,29 @@ public class SecurityConfig {
 
                         .anyRequest().authenticated()
                 )
+                .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+        return authProvider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration config
+    ) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(12);
     }
 
     @Bean
@@ -89,11 +100,9 @@ public class SecurityConfig {
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 }
-

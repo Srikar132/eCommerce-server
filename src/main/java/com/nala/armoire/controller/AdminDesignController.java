@@ -176,19 +176,4 @@ public class AdminDesignController {
 
         return ResponseEntity.ok(design);
     }
-
-    /**
-     * POST /api/v1/admin/designs/sync
-     * Manually sync all designs to Elasticsearch
-     * 
-     * @return Success message
-     */
-    // @PostMapping("/sync")
-    // public ResponseEntity<String> syncAllDesigns() {
-    //     log.info("Admin: Manual sync of all designs to Elasticsearch");
-
-    //     adminDesignService.syncAllDesignsToElasticsearch();
-
-    //     return ResponseEntity.ok("All designs synced to Elasticsearch successfully");
-    // }
 }

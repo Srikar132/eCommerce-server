@@ -1,7 +1,8 @@
 package com.nala.armoire.controller;
 
+import com.nala.armoire.model.dto.request.DesignCategoryRequest;
+import com.nala.armoire.model.dto.response.DesignCategoryResponse;
 import com.nala.armoire.model.dto.response.PagedResponse;
-import com.nala.armoire.model.entity.DesignCategory;
 import com.nala.armoire.service.AdminDesignCategoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +35,7 @@ public class AdminDesignCategoryController {
     /**
      * GET /api/v1/admin/design-categories
      * Get all design categories with pagination
-     * 
+     *
      * @param page Page number (default: 0)
      * @param size Page size (default: 20)
      * @param sortBy Sort field (default: displayOrder)
@@ -42,7 +43,7 @@ public class AdminDesignCategoryController {
      * @return Paged response of design categories
      */
     @GetMapping
-    public ResponseEntity<PagedResponse<DesignCategory>> getAllCategories(
+    public ResponseEntity<PagedResponse<DesignCategoryResponse>> getAllCategories(
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "20") Integer size,
             @RequestParam(defaultValue = "displayOrder") String sortBy,
@@ -55,9 +56,9 @@ public class AdminDesignCategoryController {
                 : Sort.Direction.ASC;
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-        Page<DesignCategory> categories = adminDesignCategoryService.getAllCategories(pageable);
+        Page<DesignCategoryResponse> categories = adminDesignCategoryService.getAllCategories(pageable);
 
-        PagedResponse<DesignCategory> response = PagedResponse.<DesignCategory>builder()
+        PagedResponse<DesignCategoryResponse> response = PagedResponse.<DesignCategoryResponse>builder()
                 .content(categories.getContent())
                 .page(categories.getNumber())
                 .size(categories.getSize())
@@ -75,14 +76,14 @@ public class AdminDesignCategoryController {
     /**
      * GET /api/v1/admin/design-categories/active
      * Get all active design categories ordered by display order
-     * 
+     *
      * @return List of active design categories
      */
     @GetMapping("/active")
-    public ResponseEntity<List<DesignCategory>> getAllActiveCategories() {
+    public ResponseEntity<List<DesignCategoryResponse>> getAllActiveCategories() {
         log.info("Admin: Fetching all active design categories");
 
-        List<DesignCategory> categories = adminDesignCategoryService.getAllActiveCategories();
+        List<DesignCategoryResponse> categories = adminDesignCategoryService.getAllActiveCategories();
 
         return ResponseEntity.ok(categories);
     }
@@ -90,15 +91,15 @@ public class AdminDesignCategoryController {
     /**
      * GET /api/v1/admin/design-categories/{id}
      * Get design category by ID
-     * 
+     *
      * @param id Category ID
      * @return Design category
      */
     @GetMapping("/{id}")
-    public ResponseEntity<DesignCategory> getCategoryById(@PathVariable UUID id) {
+    public ResponseEntity<DesignCategoryResponse> getCategoryById(@PathVariable UUID id) {
         log.info("Admin: Fetching design category: {}", id);
 
-        DesignCategory category = adminDesignCategoryService.getCategoryById(id);
+        DesignCategoryResponse category = adminDesignCategoryService.getCategoryById(id);
 
         return ResponseEntity.ok(category);
     }
@@ -106,17 +107,17 @@ public class AdminDesignCategoryController {
     /**
      * POST /api/v1/admin/design-categories
      * Create new design category
-     * 
-     * @param category Design category data
+     *
+     * @param request Design category data
      * @return Created design category
      */
     @PostMapping
-    public ResponseEntity<DesignCategory> createCategory(
-            @Valid @RequestBody DesignCategory category) {
+    public ResponseEntity<DesignCategoryResponse> createCategory(
+            @Valid @RequestBody DesignCategoryRequest request) {
 
-        log.info("Admin: Creating new design category: {}", category.getName());
+        log.info("Admin: Creating new design category: {}", request.getName());
 
-        DesignCategory created = adminDesignCategoryService.createCategory(category);
+        DesignCategoryResponse created = adminDesignCategoryService.createCategory(request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
@@ -124,19 +125,19 @@ public class AdminDesignCategoryController {
     /**
      * PUT /api/v1/admin/design-categories/{id}
      * Update existing design category
-     * 
+     *
      * @param id Category ID
-     * @param category Updated category data
+     * @param request Updated category data
      * @return Updated design category
      */
     @PutMapping("/{id}")
-    public ResponseEntity<DesignCategory> updateCategory(
+    public ResponseEntity<DesignCategoryResponse> updateCategory(
             @PathVariable UUID id,
-            @Valid @RequestBody DesignCategory category) {
+            @Valid @RequestBody DesignCategoryRequest request) {
 
         log.info("Admin: Updating design category: {}", id);
 
-        DesignCategory updated = adminDesignCategoryService.updateCategory(id, category);
+        DesignCategoryResponse updated = adminDesignCategoryService.updateCategory(id, request);
 
         return ResponseEntity.ok(updated);
     }
@@ -144,7 +145,7 @@ public class AdminDesignCategoryController {
     /**
      * DELETE /api/v1/admin/design-categories/{id}
      * Delete design category (only if no designs exist)
-     * 
+     *
      * @param id Category ID
      * @return No content response
      */
@@ -160,15 +161,15 @@ public class AdminDesignCategoryController {
     /**
      * PATCH /api/v1/admin/design-categories/{id}/toggle-status
      * Toggle category active/inactive status
-     * 
+     *
      * @param id Category ID
      * @return Updated design category
      */
     @PatchMapping("/{id}/toggle-status")
-    public ResponseEntity<DesignCategory> toggleCategoryStatus(@PathVariable UUID id) {
+    public ResponseEntity<DesignCategoryResponse> toggleCategoryStatus(@PathVariable UUID id) {
         log.info("Admin: Toggling status for design category: {}", id);
 
-        DesignCategory updated = adminDesignCategoryService.toggleCategoryStatus(id);
+        DesignCategoryResponse updated = adminDesignCategoryService.toggleCategoryStatus(id);
 
         return ResponseEntity.ok(updated);
     }
@@ -176,7 +177,7 @@ public class AdminDesignCategoryController {
     /**
      * PUT /api/v1/admin/design-categories/reorder
      * Reorder design categories
-     * 
+     *
      * @param categoryIds List of category IDs in desired order
      * @return No content response
      */

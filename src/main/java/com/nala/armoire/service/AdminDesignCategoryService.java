@@ -2,6 +2,9 @@ package com.nala.armoire.service;
 
 import com.nala.armoire.exception.BadRequestException;
 import com.nala.armoire.exception.ResourceNotFoundException;
+import com.nala.armoire.mapper.DesignCategoryMapper;
+import com.nala.armoire.model.dto.request.DesignCategoryRequest;
+import com.nala.armoire.model.dto.response.DesignCategoryResponse;
 import com.nala.armoire.model.entity.DesignCategory;
 import com.nala.armoire.repository.DesignCategoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,43 +27,72 @@ import java.util.UUID;
 public class AdminDesignCategoryService {
 
     private final DesignCategoryRepository designCategoryRepository;
+    private final DesignCategoryMapper mapper;
 
     /**
      * Get all design categories with pagination
      */
-    public Page<DesignCategory> getAllCategories(Pageable pageable) {
+    @Transactional(readOnly = true)
+    public Page<DesignCategoryResponse> getAllCategories(Pageable pageable) {
         log.info("Fetching all design categories - page: {}", pageable.getPageNumber());
-        return designCategoryRepository.findAll(pageable);
+        return designCategoryRepository.findAll(pageable)
+                .map(category -> {
+                    DesignCategoryResponse response = mapper.toResponse(category);
+                    // Efficiently get design count
+                    Long count = designCategoryRepository.countDesignsByCategoryId(category.getId());
+                    response.setDesignCount(count != null ? count.intValue() : 0);
+                    return response;
+                });
     }
 
     /**
      * Get all active design categories ordered by display order
      */
-    public List<DesignCategory> getAllActiveCategories() {
+    @Transactional(readOnly = true)
+    public List<DesignCategoryResponse> getAllActiveCategories() {
         log.info("Fetching all active design categories");
-        return designCategoryRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
+        List<DesignCategory> categories = designCategoryRepository
+                .findByIsActiveTrueOrderByDisplayOrderAsc();
+
+        return categories.stream()
+                .map(category -> {
+                    DesignCategoryResponse response = mapper.toResponse(category);
+                    Long count = designCategoryRepository.countDesignsByCategoryId(category.getId());
+                    response.setDesignCount(count != null ? count.intValue() : 0);
+                    return response;
+                })
+                .toList();
     }
 
     /**
      * Get design category by ID
      */
-    public DesignCategory getCategoryById(UUID id) {
+    @Transactional(readOnly = true)
+    public DesignCategoryResponse getCategoryById(UUID id) {
         log.info("Fetching design category: {}", id);
-        return designCategoryRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Design category not found with id: " + id));
+        DesignCategory category = findCategoryEntityById(id);
+        DesignCategoryResponse response = mapper.toResponse(category);
+
+        // Efficiently get design count
+        Long count = designCategoryRepository.countDesignsByCategoryId(id);
+        response.setDesignCount(count != null ? count.intValue() : 0);
+
+        return response;
     }
 
     /**
      * Create new design category
      */
     @Transactional
-    public DesignCategory createCategory(DesignCategory category) {
-        log.info("Creating new design category: {}", category.getName());
+    public DesignCategoryResponse createCategory(DesignCategoryRequest request) {
+        log.info("Creating new design category: {}", request.getName());
 
         // Validate slug uniqueness
-        if (designCategoryRepository.findBySlug(category.getSlug()).isPresent()) {
-            throw new BadRequestException("Design category with slug '" + category.getSlug() + "' already exists");
+        if (designCategoryRepository.findBySlug(request.getSlug()).isPresent()) {
+            throw new BadRequestException("Design category with slug '" + request.getSlug() + "' already exists");
         }
+
+        DesignCategory category = mapper.toEntity(request);
 
         // Set default display order if not provided
         if (category.getDisplayOrder() == null) {
@@ -71,36 +103,37 @@ public class AdminDesignCategoryService {
         DesignCategory saved = designCategoryRepository.save(category);
         log.info("Design category created successfully: {}", saved.getId());
 
-        return saved;
+        return mapper.toResponse(saved);
     }
 
     /**
      * Update existing design category
      */
     @Transactional
-    public DesignCategory updateCategory(UUID id, DesignCategory updatedCategory) {
+    public DesignCategoryResponse updateCategory(UUID id, DesignCategoryRequest request) {
         log.info("Updating design category: {}", id);
 
-        DesignCategory existing = getCategoryById(id);
+        DesignCategory existing = findCategoryEntityById(id);
 
         // Check slug uniqueness if changed
-        if (!existing.getSlug().equals(updatedCategory.getSlug())) {
-            designCategoryRepository.findBySlug(updatedCategory.getSlug())
+        if (!existing.getSlug().equals(request.getSlug())) {
+            designCategoryRepository.findBySlug(request.getSlug())
                     .ifPresent(cat -> {
-                        throw new BadRequestException("Design category with slug '" + updatedCategory.getSlug() + "' already exists");
+                        throw new BadRequestException("Design category with slug '" + request.getSlug() + "' already exists");
                     });
         }
 
-        // Update fields
-        existing.setName(updatedCategory.getName());
-        existing.setSlug(updatedCategory.getSlug());
-        existing.setDescription(updatedCategory.getDescription());
-        existing.setDisplayOrder(updatedCategory.getDisplayOrder());
+        // Update fields using mapper
+        mapper.updateEntityFromRequest(existing, request);
 
         DesignCategory saved = designCategoryRepository.save(existing);
         log.info("Design category updated successfully: {}", saved.getId());
 
-        return saved;
+        DesignCategoryResponse response = mapper.toResponse(saved);
+        Long count = designCategoryRepository.countDesignsByCategoryId(id);
+        response.setDesignCount(count != null ? count.intValue() : 0);
+
+        return response;
     }
 
     /**
@@ -111,12 +144,13 @@ public class AdminDesignCategoryService {
     public void deleteCategory(UUID id) {
         log.info("Deleting design category: {}", id);
 
-        DesignCategory category = getCategoryById(id);
+        DesignCategory category = findCategoryEntityById(id);
 
-        // Check if category has designs
-        if (!category.getDesigns().isEmpty()) {
+        // Check if category has designs using efficient count query
+        Long designCount = designCategoryRepository.countDesignsByCategoryId(id);
+        if (designCount != null && designCount > 0) {
             throw new BadRequestException(
-                    "Cannot delete design category with " + category.getDesigns().size() + " designs. " +
+                    "Cannot delete design category with " + designCount + " designs. " +
                             "Please reassign or delete the designs first."
             );
         }
@@ -129,16 +163,20 @@ public class AdminDesignCategoryService {
      * Toggle category active status
      */
     @Transactional
-    public DesignCategory toggleCategoryStatus(UUID id) {
+    public DesignCategoryResponse toggleCategoryStatus(UUID id) {
         log.info("Toggling status for design category: {}", id);
 
-        DesignCategory category = getCategoryById(id);
+        DesignCategory category = findCategoryEntityById(id);
         category.setIsActive(!category.getIsActive());
 
         DesignCategory saved = designCategoryRepository.save(category);
         log.info("Design category status toggled to: {}", saved.getIsActive());
 
-        return saved;
+        DesignCategoryResponse response = mapper.toResponse(saved);
+        Long count = designCategoryRepository.countDesignsByCategoryId(id);
+        response.setDesignCount(count != null ? count.intValue() : 0);
+
+        return response;
     }
 
     /**
@@ -150,11 +188,19 @@ public class AdminDesignCategoryService {
 
         for (int i = 0; i < categoryIds.size(); i++) {
             UUID categoryId = categoryIds.get(i);
-            DesignCategory category = getCategoryById(categoryId);
+            DesignCategory category = findCategoryEntityById(categoryId);
             category.setDisplayOrder(i + 1);
             designCategoryRepository.save(category);
         }
 
         log.info("Design categories reordered successfully");
+    }
+
+    /**
+     * Helper method to find category entity by ID
+     */
+    private DesignCategory findCategoryEntityById(UUID id) {
+        return designCategoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Design category not found with id: " + id));
     }
 }
