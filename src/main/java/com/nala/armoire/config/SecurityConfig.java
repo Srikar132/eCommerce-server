@@ -23,6 +23,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 
+/**
+ * Security Configuration - Cookie-based JWT Authentication
+ * Configured for HTTP-Only secure cookies with proper CORS settings
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -99,10 +103,26 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("*")); // Allow all origins
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        
+        // IMPORTANT: Specify exact origins for cookie-based auth (not wildcard)
+        // In production, use your actual frontend URLs
+        configuration.setAllowedOrigins(Arrays.asList(
+            "http://localhost:3000",      // React/Next.js dev
+            "http://localhost:5173",      // Vite dev
+            "https://yourdomain.com",     // Production frontend
+            "https://www.yourdomain.com"  // Production frontend with www
+        ));
+        
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
+        
+        // CRITICAL: Must be true for cookies to work cross-origin
         configuration.setAllowCredentials(true);
+        
+        // Expose headers that frontend might need
+        configuration.setExposedHeaders(Arrays.asList("Set-Cookie"));
+        
+        configuration.setMaxAge(3600L); // Cache preflight requests for 1 hour
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
