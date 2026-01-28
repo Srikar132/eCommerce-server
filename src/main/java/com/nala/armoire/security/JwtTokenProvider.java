@@ -19,10 +19,16 @@ public class JwtTokenProvider {
     @Value("${jwt.access-token-expiration}")
     private Long accessTokenExpiration;
 
+    @Value("${jwt.refresh-token-expiration}")
+    private Long refreshTokenExpiration;
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
+    /**
+     * Generate Access Token (15 minutes)
+     */
     public String generateAccessToken(User user) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpiration);
@@ -34,6 +40,24 @@ public class JwtTokenProvider {
                 .claim("emailVerified" , user.getEmailVerified())
                 .claim("phone" , user.getPhone())
                 .claim("username" , user.getUserName())
+                .claim("type", "access")
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    /**
+     * Generate Refresh Token (7 days)
+     */
+    public String generateRefreshToken(User user) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + refreshTokenExpiration);
+
+        return Jwts.builder()
+                .setSubject(user.getId().toString())
+                .claim("type", "refresh")
+                .claim("tokenId", UUID.randomUUID().toString()) // Unique ID for token rotation
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey())
@@ -43,6 +67,16 @@ public class JwtTokenProvider {
     public UUID getUserIdFromToken(String token) {
         Claims claims = extractAllClaims(token);
         return UUID.fromString(claims.getSubject());
+    }
+
+    public String getTokenType(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.get("type", String.class);
+    }
+
+    public String getTokenId(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.get("tokenId", String.class);
     }
 
     private Claims extractAllClaims(String token) {
@@ -58,7 +92,7 @@ public class JwtTokenProvider {
             Jwts.parserBuilder()
                     .setSigningKey(getSigningKey())
                     .build()
-                    .parseClaimsJws(token); // CORRECT method
+                    .parseClaimsJws(token);
             return true;
         } catch (ExpiredJwtException e) {
             System.out.println("Token expired: " + e.getMessage());
@@ -66,10 +100,17 @@ public class JwtTokenProvider {
             System.out.println("Unsupported token: " + e.getMessage());
         } catch (MalformedJwtException e) {
             System.out.println("Malformed token: " + e.getMessage());
-        }catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             System.out.println("Illegal argument token: " + e.getMessage());
         }
         return false;
     }
 
+    public Long getAccessTokenExpirationInSeconds() {
+        return accessTokenExpiration / 1000;
+    }
+
+    public Long getRefreshTokenExpirationInSeconds() {
+        return refreshTokenExpiration / 1000;
+    }
 }

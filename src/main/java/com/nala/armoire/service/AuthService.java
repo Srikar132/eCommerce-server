@@ -8,7 +8,9 @@ import com.nala.armoire.model.dto.request.VerifyOtpRequest;
 import com.nala.armoire.model.dto.response.MessageResponse;
 import com.nala.armoire.model.dto.response.SendOtpResponse;
 import com.nala.armoire.model.dto.response.UserResponse;
+import com.nala.armoire.model.entity.RefreshToken;
 import com.nala.armoire.model.entity.User;
+import com.nala.armoire.repository.RefreshTokenRepository;
 import com.nala.armoire.repository.UserRepository;
 import com.nala.armoire.security.JwtTokenProvider;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -26,7 +28,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Authentication Service with Phone OTP
+ * Authentication Service with Phone OTP and Refresh Token Rotation
  */
 @Slf4j
 @Service
@@ -34,6 +36,7 @@ import java.util.UUID;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final OtpService otpService;
     private final SmsService smsService;
     private final JwtTokenProvider tokenProvider;
@@ -41,8 +44,8 @@ public class AuthService {
     @Value("${otp.expiration:300}")
     private int otpExpiration;
 
-    @Value("${jwt.access-token-expiration}")
-    private Long accessTokenExpiration;
+    @Value("${jwt.refresh-token-expiration}")
+    private Long refreshTokenExpiration;
 
     /**
      * Send OTP to phone number
@@ -76,7 +79,7 @@ public class AuthService {
     }
 
     /**
-     * Verify OTP and login/register user
+     * Verify OTP and login/register user - Returns tokens with rotation
      */
     @Transactional
     public AuthToken verifyOtpAndLogin(VerifyOtpRequest request) {
@@ -113,13 +116,71 @@ public class AuthService {
         user.setLockedUntil(null);
         userRepository.save(user);
 
-        // 7. Generate access token
-        return generateAuthToken(user);
+        // 7. Generate tokens with rotation
+        return generateAuthTokens(user);
     }
 
     /**
-     * Logout user (for stateless JWT, this is a no-op on server side)
-     * Client should discard the token
+     * Refresh access token using refresh token rotation
+     */
+    @Transactional
+    public AuthToken refreshAccessToken(String refreshTokenString) {
+        try {
+            // 1. Validate refresh token format
+            if (!tokenProvider.validateToken(refreshTokenString)) {
+                throw new UnauthorizedException("Invalid refresh token");
+            }
+
+            // 2. Extract token ID and user ID
+            String tokenId = tokenProvider.getTokenId(refreshTokenString);
+            UUID userId = tokenProvider.getUserIdFromToken(refreshTokenString);
+
+            // 3. Verify token type
+            String tokenType = tokenProvider.getTokenType(refreshTokenString);
+            if (!"refresh".equals(tokenType)) {
+                throw new UnauthorizedException("Token is not a refresh token");
+            }
+
+            // 4. Find and validate refresh token in database
+            RefreshToken refreshToken = refreshTokenRepository
+                .findValidTokenByTokenId(tokenId, LocalDateTime.now())
+                .orElseThrow(() -> new UnauthorizedException("Refresh token not found or expired"));
+
+            // 5. Check if token was revoked
+            if (refreshToken.getRevoked()) {
+                // Token reuse detected - revoke all user tokens (security breach)
+                log.warn("Refresh token reuse detected for user: {}", userId);
+                refreshTokenRepository.revokeAllUserTokens(userId, LocalDateTime.now());
+                throw new UnauthorizedException("Token reuse detected. All sessions have been terminated. Please login again.");
+            }
+
+            // 6. Get user
+            User user = refreshToken.getUser();
+            if (!user.getIsActive()) {
+                throw new UnauthorizedException("Account is inactive");
+            }
+
+            // 7. Generate new tokens (rotation)
+            AuthToken newTokens = generateAuthTokens(user);
+
+            // 8. Revoke old refresh token and link to new one
+            refreshToken.revoke(tokenProvider.getTokenId(newTokens.getRefreshToken()));
+            refreshTokenRepository.save(refreshToken);
+
+            log.info("Access token refreshed successfully for user: {}", userId);
+
+            return newTokens;
+
+        } catch (UnauthorizedException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("Unexpected error during token refresh: {}", ex.getMessage(), ex);
+            throw new UnauthorizedException("Failed to refresh token. Please login again.");
+        }
+    }
+
+    /**
+     * Logout user - Revoke all refresh tokens
      */
     @Transactional
     public MessageResponse logout(UUID userId) {
@@ -130,10 +191,13 @@ public class AuthService {
         userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        log.info("User logged out: {}", userId);
+        // Revoke all refresh tokens for this user
+        int revokedCount = refreshTokenRepository.revokeAllUserTokens(userId, LocalDateTime.now());
+
+        log.info("User logged out: {} ({} tokens revoked)", userId, revokedCount);
 
         return MessageResponse.builder()
-            .message("Logged out successfully. Please discard your access token.")
+            .message("Logged out successfully. All sessions have been terminated.")
             .success(true)
             .build();
     }
@@ -213,18 +277,33 @@ public class AuthService {
     }
 
     /**
-     * Generate access token
+     * Generate access and refresh tokens with rotation
      */
-    private AuthToken generateAuthToken(User user) {
-        // Generate access token
+    private AuthToken generateAuthTokens(User user) {
+        // Generate tokens
         String accessToken = tokenProvider.generateAccessToken(user);
+        String refreshToken = tokenProvider.generateRefreshToken(user);
+        
+        // Extract token ID from refresh token
+        String tokenId = tokenProvider.getTokenId(refreshToken);
 
-        log.info("Access token generated successfully for user: {}", user.getId());
+        // Save refresh token to database
+        RefreshToken refreshTokenEntity = RefreshToken.builder()
+                .tokenId(tokenId)
+                .user(user)
+                .expiresAt(LocalDateTime.now().plusSeconds(refreshTokenExpiration / 1000))
+                .revoked(false)
+                .build();
+
+        refreshTokenRepository.save(refreshTokenEntity);
+
+        log.info("Tokens generated successfully for user: {}", user.getId());
 
         return AuthToken.builder()
             .accessToken(accessToken)
+            .refreshToken(refreshToken)
             .tokenType("Bearer")
-            .expiresIn(accessTokenExpiration / 1000) // Convert to seconds
+            .expiresIn(tokenProvider.getAccessTokenExpirationInSeconds())
             .user(mapToUserResponse(user))
             .build();
     }
@@ -252,15 +331,16 @@ public class AuthService {
     }
 
     /**
-     * Auth token holder
+     * Auth token holder with refresh token
      */
     @Data
     @Builder
     @AllArgsConstructor
     public static class AuthToken {
         private String accessToken;
+        private String refreshToken;
         private String tokenType;
-        private Long expiresIn; // in seconds
+        private Long expiresIn; // access token expiry in seconds
         private UserResponse user;
     }
 }

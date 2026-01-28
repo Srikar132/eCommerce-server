@@ -47,6 +47,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/send-otp",
                                 "/api/v1/auth/verify-otp",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/health",
                                 "/api/v1/products/**",
                                 "/api/v1/categories/**",
                                 "/api/v1/brands/**",
@@ -60,7 +62,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
 
-                                //  razotpay webhook
+                                //  razorpay webhook
                                 "/api/v1/webhooks/**"
 
                         ).permitAll()

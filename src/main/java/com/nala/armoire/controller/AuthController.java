@@ -1,5 +1,6 @@
 package com.nala.armoire.controller;
 
+import com.nala.armoire.model.dto.request.RefreshTokenRequest;
 import com.nala.armoire.model.dto.request.SendOtpRequest;
 import com.nala.armoire.model.dto.request.VerifyOtpRequest;
 import com.nala.armoire.model.dto.response.AuthResponse;
@@ -16,7 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Authentication Controller - Phone OTP Based with Bearer Token
+ * Authentication Controller - Phone OTP with Bearer Token + Refresh Token Rotation
  */
 @Slf4j
 @RestController
@@ -44,7 +45,7 @@ public class AuthController {
     /**
      * Step 2: Verify OTP and login/register user
      * POST /api/v1/auth/verify-otp
-     * Returns Bearer token in response body
+     * Returns Bearer tokens (access + refresh) in response body
      */
     @PostMapping("/verify-otp")
     public ResponseEntity<AuthResponse> verifyOtp(
@@ -57,12 +58,39 @@ public class AuthController {
         AuthResponse authResponse = AuthResponse.builder()
             .user(authToken.getUser())
             .accessToken(authToken.getAccessToken())
+            .refreshToken(authToken.getRefreshToken())
             .tokenType(authToken.getTokenType())
             .expiresIn(authToken.getExpiresIn())
             .message("Login successful")
             .build();
 
         log.info("User authenticated successfully via OTP");
+        return ResponseEntity.ok(authResponse);
+    }
+
+    /**
+     * Step 3: Refresh Access Token using Refresh Token
+     * POST /api/v1/auth/refresh
+     * Implements token rotation for security
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refreshToken(
+            @Valid @RequestBody RefreshTokenRequest request) {
+        
+        log.debug("Token refresh attempt");
+        
+        AuthService.AuthToken authToken = authService.refreshAccessToken(request.getRefreshToken());
+
+        AuthResponse authResponse = AuthResponse.builder()
+            .user(authToken.getUser())
+            .accessToken(authToken.getAccessToken())
+            .refreshToken(authToken.getRefreshToken())
+            .tokenType(authToken.getTokenType())
+            .expiresIn(authToken.getExpiresIn())
+            .message("Token refreshed successfully")
+            .build();
+
+        log.debug("Token refreshed successfully");
         return ResponseEntity.ok(authResponse);
     }
 
