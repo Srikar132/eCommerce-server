@@ -57,7 +57,9 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .setSubject(user.getId().toString())
                 .claim("type", "refresh")
-                .claim("tokenId", UUID.randomUUID().toString()) // Unique ID for token rotation
+                .claim("tokenId", UUID.randomUUID().toString()) // Unique ID
+                .claim("role", user.getRole())
+                // for token rotation
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey())

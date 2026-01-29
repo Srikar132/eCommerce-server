@@ -62,7 +62,7 @@ public class CookieUtil {
         int maxAge = (int) (refreshTokenExpiration / 1000); // Convert to seconds
         
         Cookie cookie = createSecureCookie(REFRESH_TOKEN_COOKIE, token, maxAge);
-        cookie.setPath("/api/v1/auth/refresh"); // Only accessible on refresh endpoint
+        cookie.setPath("/"); // Only accessible on refresh endpoint
         
         response.addCookie(cookie);
         log.debug("Refresh token cookie set with max age: {} seconds", maxAge);
