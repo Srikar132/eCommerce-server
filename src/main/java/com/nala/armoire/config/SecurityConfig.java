@@ -107,10 +107,7 @@ public class SecurityConfig {
         // IMPORTANT: Specify exact origins for cookie-based auth (not wildcard)
         // In production, use your actual frontend URLs
         configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:3000",      // React/Next.js dev
-            "http://localhost:5173",      // Vite dev
-            "https://yourdomain.com",     // Production frontend
-            "https://www.yourdomain.com"  // Production frontend with www
+            "http://localhost:3000"      // React/Next.js dev
         ));
         
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
