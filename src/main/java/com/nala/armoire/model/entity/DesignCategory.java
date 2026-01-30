@@ -11,7 +11,10 @@ import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "design_categories")
+@Table(name = "design_categories", indexes = {
+    @Index(name = "idx_design_category_slug", columnList = "slug"),
+    @Index(name = "idx_design_category_active", columnList = "is_active")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

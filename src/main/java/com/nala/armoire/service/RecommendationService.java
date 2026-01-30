@@ -58,12 +58,14 @@ public class RecommendationService {
         Map<UUID, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
 
-        return bestSellerIds.stream()
+        List<Product> orderedProducts = bestSellerIds.stream()
                 .map(productMap::get)
                 .filter(Objects::nonNull)
                 .filter(p -> p.getIsActive() && !p.getIsDraft())
-                .map(this::mapToProductDTO)
                 .collect(Collectors.toList());
+
+        // OPTIMIZED: Use batch mapping to avoid N+1 queries
+        return mapToProductDTOs(orderedProducts);
     }
 
     /**
@@ -181,9 +183,8 @@ public class RecommendationService {
         Pageable pageable = PageRequest.of(0, limit);
         List<Product> products = productRepository.findAll(spec, pageable).getContent();
 
-        return products.stream()
-                .map(this::mapToProductDTO)
-                .collect(Collectors.toList());
+        // OPTIMIZED: Use batch mapping to avoid N+1 queries
+        return mapToProductDTOs(products);
     }
 
     /**
@@ -200,31 +201,66 @@ public class RecommendationService {
         Pageable pageable = PageRequest.of(0, limit);
         List<Product> products = productRepository.findAll(spec, pageable).getContent();
 
-        return products.stream()
-                .map(this::mapToProductDTO)
-                .collect(Collectors.toList());
+        // OPTIMIZED: Use batch mapping to avoid N+1 queries
+        return mapToProductDTOs(products);
     }
 
     // ==================== MAPPING METHOD ====================
 
-    private ProductDTO mapToProductDTO(Product product) {
-        Double averageRating = reviewRepository.findAverageRatingByProductId(product.getId());
-        Long reviewCount = reviewRepository.countByProductId(product.getId());
+    /**
+     * Map list of products to DTOs with batch-fetched review stats
+     * OPTIMIZED: Fetches all review stats in 2 queries instead of 2*N queries
+     */
+    private List<ProductDTO> mapToProductDTOs(List<Product> products) {
+        if (products.isEmpty()) {
+            return List.of();
+        }
 
-        String primaryImageUrl = product.getVariants().stream()
-                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
-                .flatMap(v -> v.getImages().stream())
+        List<UUID> productIds = products.stream()
+                .map(Product::getId)
+                .collect(Collectors.toList());
+
+        // Batch fetch review stats (2 queries total instead of 2*N)
+        Map<UUID, Double> avgRatingMap = reviewRepository.findAverageRatingsByProductIds(productIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        arr -> (UUID) arr[0],
+                        arr -> (Double) arr[1]
+                ));
+
+        Map<UUID, Long> reviewCountMap = reviewRepository.countReviewsByProductIds(productIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        arr -> (UUID) arr[0],
+                        arr -> (Long) arr[1]
+                ));
+
+        return products.stream()
+                .map(product -> mapToProductDTO(product, avgRatingMap, reviewCountMap))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Map single product to DTO using pre-fetched review stats
+     * NEW ARCHITECTURE: Images are stored at product level, not variant level
+     */
+    private ProductDTO mapToProductDTO(
+            Product product, 
+            Map<UUID, Double> avgRatingMap, 
+            Map<UUID, Long> reviewCountMap) {
+            
+        Double averageRating = avgRatingMap.get(product.getId());
+        Long reviewCount = reviewCountMap.getOrDefault(product.getId(), 0L);
+
+        // NEW ARCHITECTURE: Get primary image from product.images (not from variants)
+        String primaryImageUrl = product.getImages().stream()
                 .filter(img -> img.getIsPrimary())
                 .findFirst()
                 .map(ProductImage::getImageUrl)
-                .orElse(
-                        product.getVariants().stream()
-                                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
-                                .flatMap(v -> v.getImages().stream())
-                                .findFirst()
-                                .map(ProductImage::getImageUrl)
-                                .orElse(null)
-                );
+                .or(() -> product.getImages().stream()
+                        .findFirst()
+                        .map(ProductImage::getImageUrl))
+                .orElse(null);
 
         return ProductDTO.builder()
                 .id(product.getId())
@@ -248,5 +284,26 @@ public class RecommendationService {
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
+    }
+
+    /**
+     * DEPRECATED: Use mapToProductDTOs() for batch processing instead
+     * This method still makes N+1 queries and should only be used for single products
+     */
+    @Deprecated
+    private ProductDTO mapToProductDTO(Product product) {
+        // Create single-element maps for backward compatibility
+        Map<UUID, Double> avgRatingMap = new HashMap<>();
+        Map<UUID, Long> reviewCountMap = new HashMap<>();
+        
+        Double avgRating = reviewRepository.findAverageRatingByProductId(product.getId());
+        if (avgRating != null) {
+            avgRatingMap.put(product.getId(), avgRating);
+        }
+        
+        Long reviewCount = reviewRepository.countByProductId(product.getId());
+        reviewCountMap.put(product.getId(), reviewCount);
+        
+        return mapToProductDTO(product, avgRatingMap, reviewCountMap);
     }
 }

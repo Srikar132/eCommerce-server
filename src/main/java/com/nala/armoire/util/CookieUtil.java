@@ -56,13 +56,13 @@ public class CookieUtil {
     /**
      * Create Refresh Token Cookie
      * - Longer expiration (7 days)
-     * - Limited to refresh endpoint only
+     * - Path: / (accessible on all routes - needed for middleware checks)
      */
     public void setRefreshTokenCookie(HttpServletResponse response, String token) {
         int maxAge = (int) (refreshTokenExpiration / 1000); // Convert to seconds
         
         Cookie cookie = createSecureCookie(REFRESH_TOKEN_COOKIE, token, maxAge);
-        cookie.setPath("/"); // Only accessible on refresh endpoint
+        cookie.setPath("/"); // Accessible on all routes (needed for middleware auth check)
         
         response.addCookie(cookie);
         log.debug("Refresh token cookie set with max age: {} seconds", maxAge);
@@ -97,7 +97,7 @@ public class CookieUtil {
      */
     public void clearRefreshTokenCookie(HttpServletResponse response) {
         Cookie cookie = createSecureCookie(REFRESH_TOKEN_COOKIE, "", 0);
-        cookie.setPath("/api/v1/auth/refresh");
+        cookie.setPath("/"); // Must match the path used when setting the cookie
         response.addCookie(cookie);
         log.debug("Refresh token cookie cleared");
     }

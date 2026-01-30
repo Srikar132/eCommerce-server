@@ -8,7 +8,14 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "categories")
+@Table(name = "categories", indexes = {
+    @Index(name = "idx_category_slug", columnList = "slug"),
+    @Index(name = "idx_category_parent", columnList = "parent_id"),
+    @Index(name = "idx_category_active", columnList = "is_active"),
+    @Index(name = "idx_category_display_order", columnList = "display_order"),
+    @Index(name = "idx_category_parent_active", columnList = "parent_id, is_active"),
+    @Index(name = "idx_category_active_order", columnList = "is_active, display_order")
+})
 @Getter
 @Data
 @NoArgsConstructor

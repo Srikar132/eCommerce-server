@@ -1,8 +1,9 @@
 package com.nala.armoire.controller;
 
 import com.nala.armoire.model.dto.request.ProductCreateRequest;
+import com.nala.armoire.model.dto.request.ProductFilterRequest;
 import com.nala.armoire.model.dto.request.ProductUpdateRequest;
-import com.nala.armoire.model.dto.request.VariantCreateRequest;
+import com.nala.armoire.model.dto.response.AdminProductDTO;
 import com.nala.armoire.model.dto.response.PagedResponse;
 import com.nala.armoire.model.dto.response.ProductDTO;
 import com.nala.armoire.service.AdminProductService;
@@ -18,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,25 +39,72 @@ public class AdminProductController {
 
     /**
      * GET /api/v1/admin/products
-     * Get all products (includes inactive)
+     * Get all products with optional filters (includes inactive)
+     * 
+     * Query Parameters:
+     * - page: Page number (default: 0)
+     * - size: Page size (default: 20)
+     * - sortBy: Sort field (default: createdAt)
+     * - sortDir: Sort direction ASC/DESC (default: DESC)
+     * - search: Text search in name, description, SKU
+     * - categoryId: Filter by category UUID
+     * - brandId: Filter by brand UUID
+     * - isActive: Filter by active status (true/false)
+     * - isDraft: Filter by draft status (true/false)
+     * - isCustomizable: Filter by customizable status (true/false)
+     * - minPrice: Minimum base price
+     * - maxPrice: Maximum base price
+     * - minRating: Minimum average rating (0-5)
+     * - sku: Filter by exact SKU match
      */
     @GetMapping
-    public ResponseEntity<PagedResponse<ProductDTO>> getAllProducts(
+    public ResponseEntity<PagedResponse<AdminProductDTO>> getAllProducts(
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "20") Integer size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "DESC") String sortDir) {
+            @RequestParam(defaultValue = "DESC") String sortDir,
+            // Filter parameters
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) UUID brandId,
+            @RequestParam(required = false) Boolean isActive,
+            @RequestParam(required = false) Boolean isDraft,
+            @RequestParam(required = false) Boolean isCustomizable,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false) Double minRating,
+            @RequestParam(required = false) String stockStatus // LOW_STOCK, IN_STOCK, OUT_OF_STOCK
+        ) {
 
-        log.info("Admin: Fetching all products - page: {}, size: {}", page, size);
+        log.info("Admin: Fetching products - page: {}, size: {}, filters applied: {}", 
+                page, size, 
+                (search != null || categoryId != null || brandId != null || 
+                 isActive != null || isDraft != null || minPrice != null || 
+                 maxPrice != null || minRating != null || stockStatus != null));
 
         Sort.Direction direction = "ASC".equalsIgnoreCase(sortDir)
                 ? Sort.Direction.ASC
                 : Sort.Direction.DESC;
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-        Page<ProductDTO> products = adminProductService.getAllProducts(pageable);
 
-        PagedResponse<ProductDTO> response = PagedResponse.<ProductDTO>builder()
+        // Build filter request
+        ProductFilterRequest filterRequest = ProductFilterRequest.builder()
+                .search(search)
+                .categoryId(categoryId)
+                .brandId(brandId)
+                .isActive(isActive)
+                .isDraft(isDraft)
+                .isCustomizable(isCustomizable)
+                .minPrice(minPrice)
+                .maxPrice(maxPrice)
+                .minRating(minRating)
+                .stockStatus(stockStatus)
+                .build();
+
+        Page<AdminProductDTO> products = adminProductService.getFilteredProducts(filterRequest, pageable, sortBy);   
+
+        PagedResponse<AdminProductDTO> response = PagedResponse.<AdminProductDTO>builder()
                 .content(products.getContent())
                 .page(products.getNumber())
                 .size(products.getSize())

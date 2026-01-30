@@ -8,7 +8,16 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "reviews")
+@Table(name = "reviews", indexes = {
+    @Index(name = "idx_review_user", columnList = "user_id"),
+    @Index(name = "idx_review_product", columnList = "product_id"),
+    @Index(name = "idx_review_order_item", columnList = "order_item_id"),
+    @Index(name = "idx_review_rating", columnList = "rating"),
+    @Index(name = "idx_review_verified", columnList = "is_verified_purchase"),
+    @Index(name = "idx_review_created_at", columnList = "created_at"),
+    @Index(name = "idx_review_product_rating", columnList = "product_id, rating"),
+    @Index(name = "idx_review_product_created", columnList = "product_id, created_at")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

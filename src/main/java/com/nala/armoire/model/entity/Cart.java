@@ -16,7 +16,13 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "carts")
+@Table(name = "carts", indexes = {
+    @Index(name = "idx_cart_user", columnList = "user_id"),
+    @Index(name = "idx_cart_session", columnList = "session_id"),
+    @Index(name = "idx_cart_created_at", columnList = "created_at"),
+    @Index(name = "idx_cart_updated_at", columnList = "updated_at"),
+    @Index(name = "idx_cart_expires_at", columnList = "expires_at")  // Bug Fix #10: For cleanup jobs
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -77,7 +83,7 @@ public class Cart {
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
-    //Helper methods
+    //Helper methods - Bug Fix #1: Proper cascade removal handling
     public void addItem(CartItem item) {
         items.add(item);
         item.setCart(this);
@@ -85,11 +91,13 @@ public class Cart {
     }
 
     public void removeItem(CartItem item) {
-        items.remove(item);
-        item.setCart(null);
-        recalculateTotals();
+        if (items.remove(item)) {  // ✅ Remove from collection first
+            item.setCart(null);
+            recalculateTotals();
+        }
     }
 
+    // Bug Fix #3: Safe null handling for gstRate
     public void recalculateTotals() {
 
         this.subtotal = items.stream()
@@ -102,9 +110,10 @@ public class Cart {
 
         BigDecimal taxableAmount = subtotal.subtract(safeDiscount);
 
-        // Use configured GST rate instead of hardcoded 10%
+        // ✅ Bug Fix #3: Safe null handling with default value
+        BigDecimal effectiveGstRate = (gstRate != null) ? gstRate : BigDecimal.valueOf(0.18);
         this.taxAmount = taxableAmount
-                .multiply(gstRate != null ? gstRate : BigDecimal.valueOf(0.18))
+                .multiply(effectiveGstRate)
                 .setScale(2, RoundingMode.HALF_UP);
 
         // Shipping cost is determined by service based on threshold

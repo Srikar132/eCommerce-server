@@ -16,6 +16,14 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @Entity
+@Table(name = "customization", indexes = {
+    @Index(name = "idx_customization_user", columnList = "userId"),
+    @Index(name = "idx_customization_product", columnList = "productId"),
+    @Index(name = "idx_customization_variant", columnList = "variantId"),
+    @Index(name = "idx_customization_design", columnList = "designId"),
+    @Index(name = "idx_customization_user_product", columnList = "userId, productId"),
+    @Index(name = "idx_customization_created_at", columnList = "createdAt")
+})
 public class Customization {
 
     @Id

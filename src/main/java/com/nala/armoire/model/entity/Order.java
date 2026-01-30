@@ -12,7 +12,16 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", indexes = {
+    @Index(name = "idx_order_user", columnList = "user_id"),
+    @Index(name = "idx_order_number", columnList = "order_number"),
+    @Index(name = "idx_order_status", columnList = "status"),
+    @Index(name = "idx_order_payment_status", columnList = "payment_status"),
+    @Index(name = "idx_order_razorpay_order_id", columnList = "razorpay_order_id"),
+    @Index(name = "idx_order_created_at", columnList = "created_at"),
+    @Index(name = "idx_order_user_status", columnList = "user_id, status"),
+    @Index(name = "idx_order_user_created", columnList = "user_id, created_at")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -119,20 +128,26 @@ public class Order {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // Bug Fix #12: Optimistic locking for concurrent order updates
+    @Version
+    private Long version;
+
     // Relationships
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<OrderItem> orderItems = new ArrayList<>();
 
     // Helper methods
+    // Helper methods - Bug Fix #1: Proper cascade removal handling
     public void addOrderItem(OrderItem orderItem) {
         orderItems.add(orderItem);
         orderItem.setOrder(this);
     }
 
     public void removeOrderItem(OrderItem orderItem) {
-        orderItems.remove(orderItem);
-        orderItem.setOrder(null);
+        if (orderItems.remove(orderItem)) {  // ✅ Remove from collection first
+            orderItem.setOrder(null);
+        }
     }
 
     // Calculate total amount

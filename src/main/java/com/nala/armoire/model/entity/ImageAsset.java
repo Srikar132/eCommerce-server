@@ -16,7 +16,11 @@ import java.util.UUID;
  * Used for admin asset management
  */
 @Entity
-@Table(name = "image_assets")
+@Table(name = "image_assets", indexes = {
+    @Index(name = "idx_image_asset_s3_key", columnList = "s3Key"),
+    @Index(name = "idx_image_asset_created_at", columnList = "created_at"),
+    @Index(name = "idx_image_asset_file_name", columnList = "fileName")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

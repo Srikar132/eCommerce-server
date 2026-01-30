@@ -124,4 +124,35 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
             @Param("productId") UUID productId,
             Pageable pageable
     );
+
+    /**
+     * Count distinct orders containing a specific product
+     * OPTIMIZED: Direct join to product instead of through variant
+     * 
+     * @param productId The product ID
+     * @return Number of distinct orders containing this product
+     */
+    @Query("""
+        SELECT COUNT(DISTINCT oi.order.id)
+        FROM OrderItem oi
+        JOIN oi.productVariant pv
+        WHERE pv.product.id = :productId
+    """)
+    Long countDistinctOrdersByProductId(@Param("productId") UUID productId);
+
+    /**
+     * Batch count orders for multiple products
+     * OPTIMIZED: Single query instead of N queries
+     * 
+     * @param productIds List of product IDs
+     * @return Map of productId -> order count
+     */
+    @Query("""
+        SELECT pv.product.id as productId, COUNT(DISTINCT oi.order.id) as orderCount
+        FROM OrderItem oi
+        JOIN oi.productVariant pv
+        WHERE pv.product.id IN :productIds
+        GROUP BY pv.product.id
+    """)
+    List<Object[]> countOrdersByProductIds(@Param("productIds") List<UUID> productIds);
 }

@@ -18,7 +18,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Service for managing authenticated user shopping carts.
@@ -29,15 +28,23 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>Authenticated users get persistent server-side carts</li>
  *   <li>Local carts sync to server on login/checkout</li>
  * </ul>
+ * 
+ * <p>Bug Fixes Applied:
+ * <ul>
+ *   <li>#2: Fixed race condition in cart synchronization with Redis locks</li>
+ *   <li>#4: Removed class-level @Transactional, added method-level</li>
+ *   <li>#8: Replaced ConcurrentHashMap with Redis distributed locks</li>
+ * </ul>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class CartService {
 
     private static final int CART_EXPIRY_DAYS = 30;
     private static final BigDecimal CUSTOMIZATION_BASE_PRICE = BigDecimal.valueOf(10.00);
+    private static final long LOCK_TIMEOUT_SECONDS = 10L;
+    private static final long LOCK_WAIT_SECONDS = 5L;
 
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
@@ -48,17 +55,18 @@ public class CartService {
     private final UserRepository userRepository;
     private final CartMapper cartMapper;
     private final PricingConfigService pricingConfigService;
-    
-    private final ConcurrentHashMap<UUID, Object> userLocks = new ConcurrentHashMap<>();
+    private final RedisLockService redisLockService;
 
     // ==================== PUBLIC API ====================
 
+    @Transactional(readOnly = true)
     public CartResponse getCart(User user) {
         log.debug("Fetching cart for user: {}", user.getId());
         Cart cart = getOrCreateCart(user);
         return cartMapper.toCartResponse(cart);
     }
 
+    @Transactional(readOnly = true)
     public CartResponse getCartByUserId(UUID userId) {
         if (userId == null) {
             throw new IllegalArgumentException("User ID cannot be null");
@@ -66,6 +74,7 @@ public class CartService {
         return getCart(findUserById(userId));
     }
 
+    @Transactional
     public CartResponse addItemToCart(User user, AddToCartRequest request) {
         log.info("Adding item to cart - userId: {}, productId: {}, quantity: {}", 
                 user.getId(), request.getProductId(), request.getQuantity());
@@ -74,28 +83,34 @@ public class CartService {
         return addItem(cart, request);
     }
 
+    @Transactional
     public CartResponse addItemToCartByUserId(UUID userId, AddToCartRequest request) {
         return addItemToCart(findUserById(userId), request);
     }
 
+    @Transactional
     public CartResponse updateCartItem(User user, UUID itemId, UpdateCartItemRequest request) {
         Cart cart = getOrCreateCart(user);
         return updateItem(cart, itemId, request);
     }
 
+    @Transactional
     public CartResponse updateCartItemByUserId(UUID userId, UUID itemId, UpdateCartItemRequest request) {
         return updateCartItem(findUserById(userId), itemId, request);
     }
 
+    @Transactional
     public CartResponse removeCartItem(User user, UUID itemId) {
         Cart cart = getOrCreateCart(user);
         return removeItem(cart, itemId);
     }
 
+    @Transactional
     public CartResponse removeCartItemByUserId(UUID userId, UUID itemId) {
         return removeCartItem(findUserById(userId), itemId);
     }
 
+    @Transactional
     public CartResponse clearCart(User user) {
         log.info("Clearing cart for user: {}", user.getId());
         
@@ -109,15 +124,18 @@ public class CartService {
         return cartMapper.toCartResponse(cart);
     }
 
+    @Transactional
     public CartResponse clearCartByUserId(UUID userId) {
         return clearCart(findUserById(userId));
     }
 
+    @Transactional(readOnly = true)
     public CartSummaryResponse getCartSummary(User user) {
         Cart cart = getOrCreateCart(user);
         return cartMapper.toCartSummaryResponse(cart);
     }
 
+    @Transactional(readOnly = true)
     public CartSummaryResponse getCartSummaryByUserId(UUID userId) {
         return getCartSummary(findUserById(userId));
     }
@@ -127,19 +145,32 @@ public class CartService {
      * 
      * <p>Process:
      * <ol>
+     *   <li>Acquire distributed lock to prevent race conditions</li>
      *   <li>Save any unsaved customizations</li>
      *   <li>Merge local items with existing cart</li>
      *   <li>Return consolidated cart</li>
      * </ol>
+     * 
+     * <p>Bug Fix #2: Now uses Redis distributed locks instead of ConcurrentHashMap
+     * to prevent race conditions in multi-instance deployments.
      */
+    @Transactional
     public CartResponse syncLocalCart(User user, SyncLocalCartRequest request) {
         log.info("Syncing local cart - userId: {}, itemCount: {}", user.getId(), request.getItems().size());
         
-        // Use the same lock as getOrCreateCart to prevent race conditions
-        Object lock = userLocks.computeIfAbsent(user.getId(), k -> new Object());
+        // Acquire distributed lock with Redis
+        String lockKey = redisLockService.getCartLockKey(user.getId());
+        String lockToken = redisLockService.tryLockWithWait(lockKey, LOCK_TIMEOUT_SECONDS, LOCK_WAIT_SECONDS);
         
-        synchronized (lock) {
-            Cart cart = getOrCreateCart(user);
+        if (lockToken == null) {
+            throw new IllegalStateException("Unable to acquire cart lock. Please try again.");
+        }
+        
+        try {
+            // Get or create cart within the lock
+            Cart cart = cartRepository.findByUserWithItems(user)
+                    .orElseGet(() -> createNewCart(user));
+            
             int initialCount = cart.getItems().size();
             
             // Add all items WITHOUT saving in between
@@ -157,19 +188,40 @@ public class CartService {
                     user.getId(), addedCount, savedCart.getItems().size());
             
             return cartMapper.toCartResponse(savedCart);
+            
+        } finally {
+            // Always release the lock
+            redisLockService.releaseLock(lockKey, lockToken);
         }
     }
 
+    @Transactional
     public CartResponse syncLocalCartByUserId(UUID userId, SyncLocalCartRequest request) {
         return syncLocalCart(findUserById(userId), request);
     }
 
     // ==================== CART MANAGEMENT ====================
 
- private Cart getOrCreateCart(User user) {
-        Object lock = userLocks.computeIfAbsent(user.getId(), k -> new Object());
+    /**
+     * Gets existing cart or creates a new one
+     * 
+     * <p>Bug Fix #2: Uses Redis distributed lock to prevent race conditions
+     * when multiple requests try to create a cart simultaneously.
+     * 
+     * @param user The user
+     * @return Cart entity with pricing configuration applied
+     */
+    private Cart getOrCreateCart(User user) {
+        // Acquire distributed lock
+        String lockKey = redisLockService.getCartLockKey(user.getId());
+        String lockToken = redisLockService.tryLockWithWait(lockKey, LOCK_TIMEOUT_SECONDS, LOCK_WAIT_SECONDS);
         
-        synchronized (lock) {
+        if (lockToken == null) {
+            log.warn("Failed to acquire cart lock for user: {}", user.getId());
+            throw new IllegalStateException("Unable to acquire cart lock. Please try again.");
+        }
+        
+        try {
             Cart cart = cartRepository.findByUserWithItems(user)
                     .orElseGet(() -> createNewCart(user));
             
@@ -186,6 +238,10 @@ public class CartService {
             cart.recalculateTotals();
             
             return cart;
+            
+        } finally {
+            // Always release the lock
+            redisLockService.releaseLock(lockKey, lockToken);
         }
     }
 

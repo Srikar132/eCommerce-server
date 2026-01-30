@@ -12,12 +12,17 @@ import java.util.*;
 @Entity
 @Table(name = "products", indexes = {
         @Index(name = "idx_slug", columnList = "slug", unique = true),
-        @Index(name = "idx_category_active", columnList = "category_id, is_active")
+        @Index(name = "idx_category_active", columnList = "category_id, is_active"),
+        @Index(name = "idx_brand", columnList = "brand_id"),
+        @Index(name = "idx_active_draft", columnList = "is_active, is_draft"),
+        @Index(name = "idx_category_brand", columnList = "category_id, brand_id")  // Bug Fix #10: Filtering by category+brand
 })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(exclude = {"variants", "reviews", "images"})
+@ToString(exclude = {"variants", "reviews", "images"})
 public class Product {
 
     @Id
@@ -73,7 +78,16 @@ public class Product {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // REMOVED: images relationship (now on ProductVariant)
+    // Bug Fix #12: Optimistic locking for concurrent product updates
+    @Version
+    private Long version;
+
+    // NEW: Product-level images (shared across variants)
+    @OneToMany(mappedBy = "product", fetch = FetchType.LAZY,
+            cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("displayOrder ASC, isPrimary DESC")
+    @Builder.Default
+    private List<ProductImage> images = new ArrayList<>();
 
     @OneToMany(mappedBy = "product", fetch = FetchType.LAZY,
             cascade = CascadeType.ALL, orphanRemoval = true)
@@ -85,14 +99,37 @@ public class Product {
     @Builder.Default
     private List<Review> reviews = new ArrayList<>();
 
-    // Helper methods
+    // Helper methods - Bug Fix #1: Proper cascade removal handling
     public void addVariant(ProductVariant variant) {
         variants.add(variant);
         variant.setProduct(this);
     }
 
     public void removeVariant(ProductVariant variant) {
-        variants.remove(variant);
-        variant.setProduct(null);
+        if (variants.remove(variant)) {  // ✅ Remove from collection first
+            variant.setProduct(null);
+        }
+    }
+
+    public void addImage(ProductImage image) {
+        images.add(image);
+        image.setProduct(this);
+    }
+
+    public void removeImage(ProductImage image) {
+        if (images.remove(image)) {  // ✅ Remove from collection first
+            image.setProduct(null);
+        }
+    }
+    
+    public void addReview(Review review) {
+        reviews.add(review);
+        review.setProduct(this);
+    }
+    
+    public void removeReview(Review review) {
+        if (reviews.remove(review)) {  // ✅ Remove from collection first
+            review.setProduct(null);
+        }
     }
 }

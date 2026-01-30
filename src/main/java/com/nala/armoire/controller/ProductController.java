@@ -57,17 +57,10 @@ public class ProductController {
 
     /**
      * GET /api/v1/products/best-sellers - Get Best Selling Products
-<<<<<<< HEAD
-     * 
-     * Returns top selling products based on order history
-     * Can be used on homepage, category pages, or anywhere you want to showcase popular items
-     * 
-=======
      *
      * Returns top selling products based on order history
      * Can be used on homepage, category pages, or anywhere you want to showcase popular items
      *
->>>>>>> 80d12ff3fd705cd0a34eae61921a646c767e2f82
      * Example: /api/v1/products/best-sellers?limit=8
      * Example: /api/v1/products/best-sellers?category=men&limit=6
      */
@@ -84,12 +77,7 @@ public class ProductController {
     }
 
     /**
-     * GET /api/v1/products/recommendations - Get Personalized Product Recommendations
-<<<<<<< HEAD
-     * 
-=======
-     *
->>>>>>> 80d12ff3fd705cd0a34eae61921a646c767e2f82
+     * GET /api/v1/products/recommendations - Get Personalized Product 
      * Returns personalized recommendations based on:
      * - User's purchase history
      * - User's browsing behavior

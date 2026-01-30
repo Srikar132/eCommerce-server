@@ -11,7 +11,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "order_items")
+@Table(name = "order_items", indexes = {
+    @Index(name = "idx_order_item_order", columnList = "order_id"),
+    @Index(name = "idx_order_item_variant", columnList = "product_variant_id"),
+    @Index(name = "idx_order_item_production_status", columnList = "production_status"),
+    @Index(name = "idx_order_item_created_at", columnList = "created_at")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -55,12 +60,18 @@ public class OrderItem {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    // Helper method to calculate total price
+    // Bug Fix #11: Enforce null validation to prevent incorrect totals
     @PrePersist
     @PreUpdate
     private void calculateTotalPrice() {
-        if (unitPrice != null && quantity != null) {
-            this.totalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
+        if (unitPrice == null || quantity == null) {
+            throw new IllegalStateException(
+                "OrderItem validation failed: unitPrice and quantity must not be null. " +
+                "OrderItem ID: " + (id != null ? id : "new") + 
+                ", unitPrice: " + unitPrice + 
+                ", quantity: " + quantity
+            );
         }
+        this.totalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
     }
 }

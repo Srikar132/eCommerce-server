@@ -3,25 +3,36 @@ package com.nala.armoire.service;
 import com.nala.armoire.exception.ResourceNotFoundException;
 import com.nala.armoire.model.dto.request.ImageCreateRequest;
 import com.nala.armoire.model.dto.request.ProductCreateRequest;
+import com.nala.armoire.model.dto.request.ProductFilterRequest;
 import com.nala.armoire.model.dto.request.ProductUpdateRequest;
 import com.nala.armoire.model.dto.request.VariantCreateRequest;
+import com.nala.armoire.model.dto.response.AdminProductDTO;
 import com.nala.armoire.model.dto.response.ImageDTO;
 import com.nala.armoire.model.dto.response.ProductDTO;
 import com.nala.armoire.model.dto.response.VariantDTO;
 import com.nala.armoire.model.entity.Brand;
 import com.nala.armoire.model.entity.Category;
+import com.nala.armoire.model.entity.ImageRole;
 import com.nala.armoire.model.entity.Product;
 import com.nala.armoire.model.entity.ProductImage;
 import com.nala.armoire.model.entity.ProductVariant;
 import com.nala.armoire.repository.CategoryRepository;
 import com.nala.armoire.repository.BrandRepository;
+import com.nala.armoire.repository.OrderItemRepository;
 import com.nala.armoire.repository.ProductRepository;
 import com.nala.armoire.repository.ProductVariantRepository;
+import com.nala.armoire.repository.ReviewRepository;
+import com.nala.armoire.specification.AdminProductSpecification;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,7 +52,10 @@ public class AdminProductService {
     private final ProductVariantRepository productVariantRepository;
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final ReviewRepository reviewRepository;
     private final EmailService emailService;
+    private final AdminProductSpecification productSpecification;
 
     @Value("${admin.email}")
     private String adminEmail;
@@ -49,13 +63,237 @@ public class AdminProductService {
     @Value("${inventory.low-stock-threshold:10}")
     private int lowStockThreshold;
 
+
     /**
-     * Get all products for admin (includes inactive)
+     * Get filtered products for admin with dynamic filters
+     * OPTIMIZED: Uses batch queries to avoid N+1 problem
+     * 
+     * @param filterRequest Filter criteria including stockStatus
+     * @param pageable Pagination settings (sorting applied to database fields only)
+     * @param sortBy Sort field name (for calculated fields like totalStock, averageRating, totalOrders)
+     * @return Page of AdminProductDTO
      */
     @Transactional(readOnly = true)
-    public Page<ProductDTO> getAllProducts(Pageable pageable) {
-        Page<Product> products = productRepository.findAll(pageable);
-        return products.map(this::mapToDTO);
+    public Page<AdminProductDTO> getFilteredProducts(
+            ProductFilterRequest filterRequest, 
+            @NonNull Pageable pageable,
+            String sortBy) {
+        
+        log.info("Admin: Fetching filtered products with filters: {}, sortBy: {}", filterRequest, sortBy);
+        
+        Specification<Product> spec = productSpecification.buildSpecification(filterRequest);
+        
+        // For calculated fields, we need to fetch all matching products first
+        // Then sort in memory (not ideal but necessary for calculated fields)
+        boolean isCalculatedFieldSort = sortBy != null && 
+            (sortBy.equals("totalStock") || sortBy.equals("averageRating") || 
+             sortBy.equals("totalOrders") || sortBy.equals("reviewCount"));
+        
+        Page<Product> products;
+        
+        if (isCalculatedFieldSort) {
+            // Fetch without sorting, we'll sort after mapping
+            log.info("Admin: Sorting by calculated field '{}' - will sort in memory", sortBy);
+            Pageable unsortedPageable = PageRequest.of(
+                pageable.getPageNumber(), 
+                pageable.getPageSize()
+            );
+            products = productRepository.findAll(spec, unsortedPageable);
+        } else {
+            // Normal database sorting
+            products = productRepository.findAll(spec, pageable);
+        }
+        
+        log.info("Admin: Found {} products matching filters", products.getTotalElements());
+        
+        // Map to DTOs with batch-loaded data
+        Page<AdminProductDTO> dtoPage = mapToAdminDTOPage(products, filterRequest);
+        
+        // Apply in-memory sorting for calculated fields
+        if (isCalculatedFieldSort) {
+            dtoPage = sortByCalculatedField(dtoPage, sortBy, pageable.getSort());
+        }
+        
+        return dtoPage;
+    }
+
+    /**
+     * Sort AdminProductDTO page by calculated fields in memory
+     */
+    private Page<AdminProductDTO> sortByCalculatedField(
+            Page<AdminProductDTO> page, 
+            String sortBy, 
+            Sort sort) {
+        
+        // Create a mutable copy of the list (page.getContent() returns unmodifiable list)
+        List<AdminProductDTO> content = new ArrayList<>(page.getContent());
+        Sort.Direction direction = sort.isSorted() 
+            ? sort.iterator().next().getDirection() 
+            : Sort.Direction.DESC;
+        
+        switch (sortBy) {
+            case "totalStock":
+                content.sort((a, b) -> {
+                    Integer stockA = a.getTotalStock() != null ? a.getTotalStock() : 0;
+                    Integer stockB = b.getTotalStock() != null ? b.getTotalStock() : 0;
+                    return direction.isAscending()
+                        ? Integer.compare(stockA, stockB)
+                        : Integer.compare(stockB, stockA);
+                });
+                break;
+            case "averageRating":
+                content.sort((a, b) -> {
+                    Double ratingA = a.getAverageRating() != null ? a.getAverageRating() : 0.0;
+                    Double ratingB = b.getAverageRating() != null ? b.getAverageRating() : 0.0;
+                    return direction.isAscending()
+                        ? Double.compare(ratingA, ratingB)
+                        : Double.compare(ratingB, ratingA);
+                });
+                break;
+            case "totalOrders":
+                content.sort((a, b) -> {
+                    Long ordersA = a.getTotalOrders() != null ? a.getTotalOrders() : 0L;
+                    Long ordersB = b.getTotalOrders() != null ? b.getTotalOrders() : 0L;
+                    return direction.isAscending()
+                        ? Long.compare(ordersA, ordersB)
+                        : Long.compare(ordersB, ordersA);
+                });
+                break;
+            case "reviewCount":
+                content.sort((a, b) -> {
+                    Long reviewsA = a.getReviewCount() != null ? a.getReviewCount() : 0L;
+                    Long reviewsB = b.getReviewCount() != null ? b.getReviewCount() : 0L;
+                    return direction.isAscending()
+                        ? Long.compare(reviewsA, reviewsB)
+                        : Long.compare(reviewsB, reviewsA);
+                });
+                break;
+        }
+        
+        return new org.springframework.data.domain.PageImpl<>(
+            content, 
+            page.getPageable(), 
+            page.getTotalElements()
+        );
+    }
+
+    /**
+     * Map a page of products to AdminProductDTO using batch queries
+     * SIMPLE APPROACH: Let Hibernate lazy-load collections within transaction
+     * 
+     * @param products Page of Product entities
+     * @param filterRequest Filter request (for stockStatus filtering)
+     * @return Page of AdminProductDTO with calculated fields
+     */
+    private Page<AdminProductDTO> mapToAdminDTOPage(
+            Page<Product> products, 
+            ProductFilterRequest filterRequest) {
+        
+        if (products.isEmpty()) {
+            return Page.empty();
+        }
+
+        // Extract all product IDs
+        List<UUID> productIds = products.getContent().stream()
+                .map(Product::getId)
+                .collect(Collectors.toList());
+
+        // Batch fetch all statistics in 3 queries instead of N queries
+        Map<UUID, Long> orderCountMap = batchGetOrderCounts(productIds);
+        Map<UUID, Double> avgRatingMap = batchGetAverageRatings(productIds);
+        Map<UUID, Long> reviewCountMap = batchGetReviewCounts(productIds);
+
+        // Map products - let Hibernate lazy-load variants and images as needed
+        // This is within @Transactional boundary, so lazy loading works fine
+        List<AdminProductDTO> dtos = products.getContent().stream()
+                .map(product -> {
+                    // Initialize lazy collections by accessing them
+                    // This triggers Hibernate to load them within the transaction
+                    if (product.getVariants() != null) {
+                        product.getVariants().size(); // Force load variants
+                        
+                        // Force load variant images
+                        product.getVariants().forEach(variant -> {
+                            if (variant.getVariantImages() != null) {
+                                variant.getVariantImages().size();
+                            }
+                        });
+                    }
+                    
+                    return mapToAdminDTO(
+                            product, 
+                            orderCountMap.getOrDefault(product.getId(), 0L),
+                            avgRatingMap.get(product.getId()),
+                            reviewCountMap.getOrDefault(product.getId(), 0L)
+                    );
+                })
+                .collect(Collectors.toList());
+        
+        // Filter by stockStatus if requested
+        if (filterRequest.getStockStatus() != null && !filterRequest.getStockStatus().isEmpty()) {
+            log.info("Admin: Filtering by stockStatus: {}", filterRequest.getStockStatus());
+            dtos = dtos.stream()
+                    .filter(dto -> filterRequest.getStockStatus().equals(dto.getStockStatus()))
+                    .collect(Collectors.toList());
+        }
+        
+        // Use original total elements count from database, not filtered list size
+        return new org.springframework.data.domain.PageImpl<>(
+            dtos, 
+            products.getPageable(), 
+            products.getTotalElements()  // Preserve original pagination metadata
+        );
+    }
+
+    /**
+     * Batch fetch order counts for multiple products (1 query)
+     */
+    private Map<UUID, Long> batchGetOrderCounts(List<UUID> productIds) {
+        try {
+            List<Object[]> results = orderItemRepository.countOrdersByProductIds(productIds);
+            return results.stream()
+                    .collect(Collectors.toMap(
+                            row -> (UUID) row[0],
+                            row -> (Long) row[1]
+                    ));
+        } catch (Exception e) {
+            log.warn("Error batch fetching order counts: {}", e.getMessage());
+            return Collections.emptyMap();
+        }
+    }
+
+    /**
+     * Batch fetch average ratings for multiple products (1 query)
+     */
+    private Map<UUID, Double> batchGetAverageRatings(List<UUID> productIds) {
+        try {
+            List<Object[]> results = reviewRepository.findAverageRatingsByProductIds(productIds);
+            return results.stream()
+                    .collect(Collectors.toMap(
+                            row -> (UUID) row[0],
+                            row -> (Double) row[1]
+                    ));
+        } catch (Exception e) {
+            log.warn("Error batch fetching average ratings: {}", e.getMessage());
+            return Collections.emptyMap();
+        }
+    }
+
+    /**
+     * Batch fetch review counts for multiple products (1 query)
+     */
+    private Map<UUID, Long> batchGetReviewCounts(List<UUID> productIds) {
+        try {
+            List<Object[]> results = reviewRepository.countReviewsByProductIds(productIds);
+            return results.stream()
+                    .collect(Collectors.toMap(
+                            row -> (UUID) row[0],
+                            row -> (Long) row[1]
+                    ));
+        } catch (Exception e) {
+            log.warn("Error batch fetching review counts: {}", e.getMessage());
+            return Collections.emptyMap();
+        }
     }
 
     /**
@@ -95,11 +333,12 @@ public class AdminProductService {
      * Create product with variants and images in single transaction
      */
     @Transactional
-    public ProductDTO createProductWithVariants(ProductCreateRequest request) {
+    public ProductDTO createProductWithVariants(@NonNull ProductCreateRequest request) {
         // Validate category
         Category category = null;
         if (request.getCategoryId() != null) {
-            category = categoryRepository.findById(request.getCategoryId())
+            UUID categoryId = Objects.requireNonNull(request.getCategoryId(), "Category ID must not be null");
+            category = categoryRepository.findById(categoryId)
                     .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
         }
 
@@ -138,20 +377,24 @@ public class AdminProductService {
                     .isActive(varReq.getIsActive())
                     .build();
 
-            // Add images to variant
-            for (ImageCreateRequest imgReq : varReq.getImages()) {
-                ProductImage image = ProductImage.builder()
-                        .imageUrl(imgReq.getImageUrl())
-                        .altText(imgReq.getAltText())
-                        .displayOrder(imgReq.getDisplayOrder())
-                        .isPrimary(imgReq.getIsPrimary())
-                        .imageRole(imgReq.getImageRole())
-                        .build();
-
-                variant.addImage(image);
-            }
-
             product.addVariant(variant);
+
+            // Add images to product and link to variant
+            if (varReq.getImages() != null) {
+                for (ImageCreateRequest imgReq : varReq.getImages()) {
+                    ProductImage image = ProductImage.builder()
+                            .product(product)
+                            .imageUrl(imgReq.getImageUrl())
+                            .altText(imgReq.getAltText())
+                            .displayOrder(imgReq.getDisplayOrder())
+                            .isPrimary(imgReq.getIsPrimary())
+                            .imageType(imgReq.getImageRole() != null ? imgReq.getImageRole() : ImageRole.PREVIEW_BASE)
+                            .build();
+
+                    product.addImage(image);
+                    variant.addImage(image, imgReq.getDisplayOrder());
+                }
+            }
         }
 
         Product savedProduct = productRepository.save(product);
@@ -226,10 +469,11 @@ public class AdminProductService {
 
         // Update variants if provided
         if (request.getVariants() != null && !request.getVariants().isEmpty()) {
-            // Clear existing variants
+            // Clear existing variants and images
             existingProduct.getVariants().clear();
+            existingProduct.getImages().clear();
 
-            // Add new variants
+            // Add new variants with images
             for (VariantCreateRequest varReq : request.getVariants()) {
                 ProductVariant variant = ProductVariant.builder()
                         .size(varReq.getSize())
@@ -241,20 +485,24 @@ public class AdminProductService {
                         .isActive(varReq.getIsActive())
                         .build();
 
-                // Add images to variant
-                for (ImageCreateRequest imgReq : varReq.getImages()) {
-                    ProductImage image = ProductImage.builder()
-                            .imageUrl(imgReq.getImageUrl())
-                            .altText(imgReq.getAltText())
-                            .displayOrder(imgReq.getDisplayOrder())
-                            .isPrimary(imgReq.getIsPrimary())
-                            .imageRole(imgReq.getImageRole())
-                            .build();
-
-                    variant.addImage(image);
-                }
-
                 existingProduct.addVariant(variant);
+
+                // Add images to product and link to variant
+                if (varReq.getImages() != null) {
+                    for (ImageCreateRequest imgReq : varReq.getImages()) {
+                        ProductImage image = ProductImage.builder()
+                                .product(existingProduct)
+                                .imageUrl(imgReq.getImageUrl())
+                                .altText(imgReq.getAltText())
+                                .displayOrder(imgReq.getDisplayOrder())
+                                .isPrimary(imgReq.getIsPrimary())
+                                .imageType(imgReq.getImageRole() != null ? imgReq.getImageRole() : ImageRole.PREVIEW_BASE)
+                                .build();
+
+                        existingProduct.addImage(image);
+                        variant.addImage(image, imgReq.getDisplayOrder());
+                    }
+                }
             }
         }
 
@@ -283,20 +531,25 @@ public class AdminProductService {
                 .isActive(request.getIsActive())
                 .build();
 
-        // Add images
-        for (ImageCreateRequest imgReq : request.getImages()) {
-            ProductImage image = ProductImage.builder()
-                    .imageUrl(imgReq.getImageUrl())
-                    .altText(imgReq.getAltText())
-                    .displayOrder(imgReq.getDisplayOrder())
-                    .isPrimary(imgReq.getIsPrimary())
-                    .imageRole(imgReq.getImageRole())
-                    .build();
+        product.addVariant(variant);
 
-            variant.addImage(image);
+        // Add images to product and link to variant
+        if (request.getImages() != null) {
+            for (ImageCreateRequest imgReq : request.getImages()) {
+                ProductImage image = ProductImage.builder()
+                        .product(product)
+                        .imageUrl(imgReq.getImageUrl())
+                        .altText(imgReq.getAltText())
+                        .displayOrder(imgReq.getDisplayOrder())
+                        .isPrimary(imgReq.getIsPrimary())
+                        .imageType(imgReq.getImageRole() != null ? imgReq.getImageRole() : ImageRole.PREVIEW_BASE)
+                        .build();
+
+                product.addImage(image);
+                variant.addImage(image, imgReq.getDisplayOrder());
+            }
         }
 
-        product.addVariant(variant);
         productRepository.save(product);
 
         if (!product.getIsDraft()) {
@@ -315,6 +568,8 @@ public class AdminProductService {
         ProductVariant variant = productVariantRepository.findById(variantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Variant not found"));
 
+        Product product = variant.getProduct();
+
         // Update variant fields
         variant.setSize(request.getSize());
         variant.setColor(request.getColor());
@@ -324,23 +579,34 @@ public class AdminProductService {
         variant.setSku(request.getSku());
         variant.setIsActive(request.getIsActive());
 
-        // Replace images (clear and re-add)
-        variant.getImages().clear();
-        for (ImageCreateRequest imgReq : request.getImages()) {
-            ProductImage image = ProductImage.builder()
-                    .imageUrl(imgReq.getImageUrl())
-                    .altText(imgReq.getAltText())
-                    .displayOrder(imgReq.getDisplayOrder())
-                    .isPrimary(imgReq.getIsPrimary())
-                    .imageRole(imgReq.getImageRole())
-                    .build();
+        // Remove old variant-image links
+        variant.getVariantImages().clear();
 
-            variant.addImage(image);
+        // Remove old images from product (if not used by other variants)
+        List<ProductImage> imagesToRemove = product.getImages().stream()
+                .filter(img -> img.getVariantImages().isEmpty())
+                .collect(Collectors.toList());
+        imagesToRemove.forEach(product::removeImage);
+
+        // Add new images
+        if (request.getImages() != null) {
+            for (ImageCreateRequest imgReq : request.getImages()) {
+                ProductImage image = ProductImage.builder()
+                        .product(product)
+                        .imageUrl(imgReq.getImageUrl())
+                        .altText(imgReq.getAltText())
+                        .displayOrder(imgReq.getDisplayOrder())
+                        .isPrimary(imgReq.getIsPrimary())
+                        .imageType(imgReq.getImageRole() != null ? imgReq.getImageRole() : ImageRole.PREVIEW_BASE)
+                        .build();
+
+                product.addImage(image);
+                variant.addImage(image, imgReq.getDisplayOrder());
+            }
         }
 
         productVariantRepository.save(variant);
 
-        Product product = variant.getProduct();
         if (!product.getIsDraft()) {
         }
 
@@ -648,10 +914,6 @@ public class AdminProductService {
 
     /**
      * Map ProductVariant entity to VariantDTO
-     */
-
-    /**
-     * Map ProductVariant entity to VariantDTO
      * Safely converts entity to DTO, breaking circular references
      */
     private VariantDTO mapVariantToDTO(ProductVariant variant) {
@@ -663,7 +925,7 @@ public class AdminProductService {
                         .altText(img.getAltText())
                         .displayOrder(img.getDisplayOrder())
                         .isPrimary(img.getIsPrimary())
-//                        .imageRole(img.getImageRole())
+                        .imageRole(img.getImageType() != null ? img.getImageType().name() : null)
                         .build())
                 .collect(Collectors.toList());
 
@@ -679,11 +941,6 @@ public class AdminProductService {
                 .sku(variant.getSku())
                 .isActive(variant.getIsActive())
                 .images(images);
-
-        // Add createdAt and updatedAt if they exist in your entity
-        // If ProductVariant extends BaseEntity with these fields, uncomment:
-        // .createdAt(variant.getCreatedAt())
-        // .updatedAt(variant.getUpdatedAt());
 
         return builder.build();
     }
@@ -726,4 +983,120 @@ public class AdminProductService {
                 .updatedAt(product.getUpdatedAt())
                 .build();
     }
+
+    /**
+     * Map Product entity to AdminProductDTO with admin-specific fields
+     * LEGACY: Use overloaded version with pre-fetched data for better performance
+     */
+    // private AdminProductDTO mapToAdminDTO(Product product) {
+    //     // Calculate admin-specific fields (will cause N+1 queries)
+    //     Long totalOrders = calculateTotalOrders(product);
+    //     Double averageRating = calculateAverageRating(product);
+    //     Long reviewCount = calculateReviewCount(product);
+        
+    //     return mapToAdminDTO(product, totalOrders, averageRating, reviewCount);
+    // }
+
+    /**
+     * Map Product entity to AdminProductDTO with PRE-FETCHED admin data
+     * OPTIMIZED: No additional queries needed
+     */
+    private AdminProductDTO mapToAdminDTO(Product product, Long totalOrders, Double averageRating, Long reviewCount) {
+        // Extract primary image from first active variant
+        String primaryImageUrl = getFirstVariantImage(product);
+        
+        // Calculate fields that don't require DB queries
+        Integer totalStock = calculateTotalStock(product);
+        String stockStatus = calculateStockStatus(totalStock);
+
+        return AdminProductDTO.builder()
+                // Basic fields from ProductDTO
+                .id(product.getId())
+                .name(product.getName())
+                .slug(product.getSlug())
+                .description(product.getDescription())
+                .basePrice(product.getBasePrice())
+                .sku(product.getSku())
+                .isCustomizable(product.getIsCustomizable())
+                .material(product.getMaterial())
+                .careInstructions(product.getCareInstructions())
+                
+                // Category & Brand
+                .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
+                .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+                .brandId(product.getBrand() != null ? product.getBrand().getId() : null)
+                .brandName(product.getBrand() != null ? product.getBrand().getName() : null)
+                
+                // Image
+                .imageUrl(primaryImageUrl)
+                
+                // Ratings & Reviews (pre-fetched)
+                .averageRating(averageRating)
+                .reviewCount(reviewCount)
+                
+                // Status
+                .isActive(product.getIsActive())
+                .isDraft(product.getIsDraft())
+                
+                // Timestamps
+                .createdAt(product.getCreatedAt())
+                .updatedAt(product.getUpdatedAt())
+                
+                // ===== ADMIN-ONLY FIELDS =====
+                .totalStock(totalStock)
+                .totalOrders(totalOrders)
+                .stockStatus(stockStatus)
+                .build();
+    }
+
+    /**
+     * Calculate total stock across all variants
+     */
+    private Integer calculateTotalStock(Product product) {
+        if (product.getVariants() == null || product.getVariants().isEmpty()) {
+            return 0;
+        }
+        
+        return product.getVariants().stream()
+                .filter(variant -> variant.getStockQuantity() != null)
+                .mapToInt(ProductVariant::getStockQuantity)
+                .sum();
+    }
+
+
+
+    /**
+     * Calculate stock status based on total stock
+     */
+    private String calculateStockStatus(Integer totalStock) {
+        if (totalStock == null || totalStock == 0) {
+            return "OUT_OF_STOCK";
+        } else if (totalStock < lowStockThreshold) {
+            return "LOW_STOCK";
+        } else {
+            return "IN_STOCK";
+        }
+    }
+
+    /**
+     * Get first variant image (primary or first available)
+     */
+    private String getFirstVariantImage(Product product) {
+        return product.getVariants().stream()
+                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
+                .flatMap(v -> v.getImages().stream())
+                .filter(ProductImage::getIsPrimary)
+                .findFirst()
+                .map(ProductImage::getImageUrl)
+                .orElse(
+                        // Fallback to first image from first active variant
+                        product.getVariants().stream()
+                                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
+                                .flatMap(v -> v.getImages().stream())
+                                .findFirst()
+                                .map(ProductImage::getImageUrl)
+                                .orElse(null));
+    }
+
+
 }

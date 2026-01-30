@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -50,9 +52,34 @@ public class BrandService {
 
         Page<Product> products = productRepository.findByBrandIdAndIsActiveTrueAndIsDraftFalse(brand.getId(), pageable);
 
+        // OPTIMIZED: Batch fetch review stats to avoid N+1 queries
+        if (products.isEmpty()) {
+            return Page.empty();
+        }
+        
+        List<UUID> productIds = products.getContent().stream()
+                .map(Product::getId)
+                .collect(Collectors.toList());
+        
+        // Batch query: Get average ratings for all products (1 query instead of N)
+        Map<UUID, Double> avgRatingMap = reviewRepository.findAverageRatingsByProductIds(productIds)
+                .stream()
+                .collect(Collectors.toMap(
+                    arr -> (UUID) arr[0],
+                    arr -> (Double) arr[1]
+                ));
+        
+        // Batch query: Get review counts for all products (1 query instead of N)
+        Map<UUID, Long> reviewCountMap = reviewRepository.countReviewsByProductIds(productIds)
+                .stream()
+                .collect(Collectors.toMap(
+                    arr -> (UUID) arr[0],
+                    arr -> (Long) arr[1]
+                ));
+
         return products.map(product -> {
-            Double averageRating = reviewRepository.findAverageRatingByProductId(product.getId());
-            Long reviewCount = reviewRepository.countByProductId(product.getId());
+            Double averageRating = avgRatingMap.get(product.getId());
+            Long reviewCount = reviewCountMap.getOrDefault(product.getId(), 0L);
 
             return ProductDTO.builder()
                     .id(product.getId())

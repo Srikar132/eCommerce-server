@@ -4,6 +4,7 @@ import com.nala.armoire.exception.ResourceNotFoundException;
 import com.nala.armoire.model.dto.request.UpdateProfileRequest;
 import com.nala.armoire.model.dto.response.UserProfileDTO;
 import com.nala.armoire.model.entity.User;
+import com.nala.armoire.repository.RefreshTokenRepository;
 import com.nala.armoire.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;  // Bug Fix #5
 
     @Transactional(readOnly = true)
     public UserProfileDTO getUserProfile(UUID userId) {
@@ -79,6 +81,19 @@ public class UserService {
                 .failedLoginAttempts(user.getFailedLoginAttempts())
                 .lockedUntil(user.getLockedUntil())
                 .build();
+    }
+
+    /**
+     * Bug Fix #5: Delete all refresh tokens for a user
+     * Called during user deletion or security cleanup
+     * Note: With CASCADE constraint, this is redundant during user deletion
+     * but useful for manual cleanup scenarios
+     */
+    @Transactional
+    public int deleteAllRefreshTokensForUser(UUID userId) {
+        int deletedCount = refreshTokenRepository.deleteAllByUserId(userId);
+        log.info("Deleted {} refresh tokens for userId: {}", deletedCount, userId);
+        return deletedCount;
     }
 
 }

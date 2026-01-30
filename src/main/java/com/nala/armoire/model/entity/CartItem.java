@@ -14,7 +14,13 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "cart_items")
+@Table(name = "cart_items", indexes = {
+    @Index(name = "idx_cart_item_cart", columnList = "cart_id"),
+    @Index(name = "idx_cart_item_product", columnList = "product_id"),
+    @Index(name = "idx_cart_item_variant", columnList = "product_variant_id"),
+    @Index(name = "idx_cart_item_customization", columnList = "customization_id"),
+    @Index(name = "idx_cart_item_created_at", columnList = "created_at")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -11,6 +11,8 @@ import com.nala.armoire.repository.AddressRepository;
 import com.nala.armoire.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +40,7 @@ public class AddressService {
     }
 
     @Transactional
-    public AddressDTO addAddress(UUID userId, AddAddressRequest request) {
+    public AddressDTO addAddress(@NonNull UUID userId, AddAddressRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 

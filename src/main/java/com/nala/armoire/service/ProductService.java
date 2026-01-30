@@ -364,19 +364,15 @@ public class ProductService {
         Long reviewCount = reviewRepository.countByProductId(product.getId());
 
         // Get primary image from first active variant
-        String primaryImageUrl = product.getVariants().stream()
-                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
-                .flatMap(v -> v.getImages().stream())
+        String primaryImageUrl = product.getImages().stream()
                 .filter(img -> img.getIsPrimary())
                 .findFirst()
-                .map(img -> img.getImageUrl())
+                .map(ProductImage::getImageUrl)
                 .orElse(
-                        // Fallback to first image from first active variant
-                        product.getVariants().stream()
-                                .filter(v -> v.getIsActive() && !v.getImages().isEmpty())
-                                .flatMap(v -> v.getImages().stream())
+                        // Fallback to first image
+                        product.getImages().stream()
                                 .findFirst()
-                                .map(img -> img.getImageUrl())
+                                .map(ProductImage::getImageUrl)
                                 .orElse(null)
                 );
 
@@ -412,7 +408,7 @@ public class ProductService {
                 .altText(image.getAltText())
                 .displayOrder(image.getDisplayOrder())
                 .isPrimary(image.getIsPrimary())
-                .imageRole(image.getImageRole())
+                .imageRole(image.getImageType())
                 .build();
     }
 
